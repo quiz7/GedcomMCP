@@ -62,6 +62,12 @@ class TestGedcomSearch(unittest.TestCase):
         corrected = _correct_relationship_direction("parent", "@I3@", "@I1@", self.gedcom_ctx)
         self.assertIn("child", corrected)  # @I3@ is child of @I1@
 
+    def test_correct_relationship_direction_sibling_male(self):
+        # Test correcting sibling relationship for male person
+        # Create a mock context with gender information
+        # This test ensures that for sibling relationships, we check the gender of the FROM person, not the TO person
+        pass  # We'll need to implement this with proper mock data
+
     def test_generate_relationship_description(self):
         # Test generating relationship description
         path = ["@I1@", "@I3@"]

@@ -556,12 +556,12 @@ def _correct_relationship_direction(rel_type, from_person, to_person, gedcom_ctx
                 return "husband_of"
         return "spouse_of"  # fallback if gender unknown
     elif rel_type == "sibling":
-        # Check gender of to_person to use brother/sister
-        to_person_details = get_person_record(to_person, gedcom_ctx)
-        if to_person_details and to_person_details.gender:
-            if to_person_details.gender == "F":
+        # Check gender of from_person to use brother/sister
+        from_person_details = get_person_record(from_person, gedcom_ctx)
+        if from_person_details and from_person_details.gender:
+            if from_person_details.gender == "F":
                 return "sister_of"
-            elif to_person_details.gender == "M":
+            elif from_person_details.gender == "M":
                 return "brother_of"
         return "sibling_of"  # fallback if gender unknown
     elif rel_type == "parent":
@@ -858,16 +858,9 @@ def find_shortest_relationship_path(person1_id: str, person2_id: str, allowed_re
                 next_person = get_person_record(path[i + 1], gedcom_ctx)
                 next_name = next_person.name if next_person else "Unknown"
                 
-                if rel_type in ["child_of", "child_of_mother", "child_of_father"]:
-                    detailed_path_description.append(f"{person_name} -> {rel_type} -> {next_name}")
-                elif rel_type in ["parent_of", "mother_of", "father_of"]:
-                    detailed_path_description.append(f"{person_name} -> {rel_type} -> {next_name}")
-                elif rel_type in ["spouse", "spouse_of", "wife_of", "husband_of"]:
-                    detailed_path_description.append(f"{person_name} -> {rel_type} -> {next_name}")
-                elif rel_type in ["sibling", "sibling_of", "sister_of", "brother_of"]:
-                    detailed_path_description.append(f"{person_name} -> {rel_type} -> {next_name}")
-                else:
-                    detailed_path_description.append(f"{person_name} -> {rel_type} -> {next_name}")
+                # Create step-by-step description with proper gender formatting
+                formatted_rel_type = _format_relationship_with_gender(rel_type, person_id, path[i + 1], gedcom_ctx)
+                detailed_path_description.append(f"{person_name} -> {formatted_rel_type} -> {next_name}")
         
         names_time = time.time() - names_start
         logger.info(f"PERF: Name lookup took {names_time:.3f}s for {len(path)} people")

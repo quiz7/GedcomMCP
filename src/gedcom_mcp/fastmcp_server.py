@@ -104,7 +104,7 @@ from .gedcom_search import (
     _dijkstra_bidirectional_search, _get_person_neighbors_lazy, _get_person_neighbors_lazy_reverse,
     _generate_relationship_chain_lazy, _correct_relationship_direction, _generate_relationship_description,
     _format_relationship_with_gender, _format_relationship_description,
-    find_shortest_relationship_path, _find_all_relationship_paths_internal, _find_all_paths_to_ancestor_internal
+    find_shortest_relationship_path as compute_shortest_relationship_path, _find_all_relationship_paths_internal, _find_all_paths_to_ancestor_internal
 )
 from .gedcom_utils import (
     normalize_string, _get_gedcom_tag_from_event_type, _get_gedcom_tag_from_attribute_type,
@@ -1123,7 +1123,7 @@ async def find_shortest_relationship_path(person1_id: str, person2_id: str, ctx:
         logger.info(f"PERF: Relationship parsing took {parse_time:.3f}s, allowed: {allowed}")
         
         # Call the internal function instead of duplicating the logic
-        result = find_shortest_relationship_path(person1_id, person2_id, allowed_relationships, gedcom_ctx, max_distance, exclude_initial_spouse_children, min_distance)
+        result = compute_shortest_relationship_path(person1_id, person2_id, allowed_relationships, gedcom_ctx, max_distance, exclude_initial_spouse_children, min_distance)
         # Convert dict to JSON string for the tool response
         if isinstance(result, dict):
             return json.dumps(result, indent=2)
