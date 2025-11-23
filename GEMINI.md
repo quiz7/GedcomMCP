@@ -76,3 +76,22 @@ Contributions are welcome. The standard process involves forking the repository,
 
 ### License:
 This project is licensed under the MIT License.
+
+## Gemini CLI Extension
+
+This project is also a Gemini CLI extension.
+
+### Installation
+
+1.  **Install the package in editable mode**:
+    ```bash
+    pip install -e .
+    ```
+2.  **Link the extension to the Gemini CLI**:
+    ```bash
+    gemini extension link $PWD
+    ```
+
+### Usage
+
+After linking the extension, you can start interacting with your GEDCOM data by running `gemini`. The `gedcom` tool will be available to you.

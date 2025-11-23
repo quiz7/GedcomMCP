@@ -39,6 +39,7 @@ dev = [
 
 [project.scripts]
 gedcom-mcp-server = "gedcom_mcp.fastmcp_server:main"
+gemini-gedcom = "gedcom_mcp.fastmcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
