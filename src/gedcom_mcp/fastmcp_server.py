@@ -287,7 +287,7 @@ from .gedcom_analysis import (
     _get_surname_statistics_internal,
     _get_date_range_analysis_internal,
     _find_potential_duplicates_internal,
-    get_common_ancestors,
+    _get_common_ancestors_internal,
 )
 from .gedcom_constants import (
     EVENT_TYPES,
@@ -1139,7 +1139,7 @@ async def get_attribute_statistics(attribute_type: str, ctx: Context) -> dict:
         stats = _get_attribute_statistics_internal(gedcom_ctx, attribute_type)
         # Check if the internal function returned an error dictionary
         if "error" in stats:
-            return {"status": "error", "message": stats["error"]}
+            return create_error_response(stats["error"])
         return {
             "status": "success",
             "message": f"Generated statistics for attribute '{attribute_type}'",

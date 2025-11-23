@@ -8,7 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.gedcom_mcp.gedcom_context import GedcomContext
-from src.gedcom_mcp.gedcom_analysis import get_statistics_report, _get_attribute_statistics_internal, _get_timeline_internal, _get_ancestors_internal, _get_descendants_internal, _get_family_tree_summary_internal, _get_surname_statistics_internal, _get_date_range_analysis_internal, _find_potential_duplicates_internal, get_common_ancestors, get_living_status
+from src.gedcom_mcp.gedcom_analysis import get_statistics_report, _get_attribute_statistics_internal, _get_timeline_internal, _get_ancestors_internal, _get_descendants_internal, _get_family_tree_summary_internal, _get_surname_statistics_internal, _get_date_range_analysis_internal, _find_potential_duplicates_internal, _get_common_ancestors_internal, get_living_status
 from src.gedcom_mcp.gedcom_data_access import load_gedcom_file, _get_events_internal
 
 
@@ -76,7 +76,7 @@ class TestGedcomAnalysis(unittest.TestCase):
         self.assertIsInstance(duplicates, str)
 
     def test_get_common_ancestors_internal(self):
-        common_ancestors = get_common_ancestors(['@I3@', '@I1@'], self.gedcom_ctx)
+        common_ancestors = _get_common_ancestors_internal(['@I3@', '@I1@'], self.gedcom_ctx)
         self.assertIsInstance(common_ancestors, dict)
         # Should find John Smith (@I1@) as common ancestor
         self.assertIn('common_ancestors', common_ancestors)

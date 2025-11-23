@@ -877,9 +877,9 @@ def find_shortest_relationship_path(
     person2 = get_person_record(person2_id, gedcom_ctx)
 
     if not person1:
-        return {"error": f"Person not found: {person1_id}"}
+        return {"status": "error", "message": f"Person not found: {person1_id}"}
     if not person2:
-        return {"error": f"Person not found: {person2_id}"}
+        return {"status": "error", "message": f"Person not found: {person2_id}"}
 
     if person1_id == person2_id:
         return {
@@ -1059,7 +1059,8 @@ def find_shortest_relationship_path(
 
     except Exception as e:
         return {
-            "error": f"Error finding relationship path: {e}\n{traceback.format_exc()}"
+            "status": "error",
+            "message": f"Error finding relationship path: {e}\n{traceback.format_exc()}",
         }
 
 
@@ -1094,9 +1095,9 @@ def _find_all_relationship_paths_internal(
     person2 = get_person_record(person2_id, gedcom_ctx)
 
     if not person1:
-        return {"error": f"Person not found: {person1_id}"}
+        return {"status": "error", "message": f"Person not found: {person1_id}"}
     if not person2:
-        return {"error": f"Person not found: {person2_id}"}
+        return {"status": "error", "message": f"Person not found: {person2_id}"}
 
     if person1_id == person2_id:
         return {
@@ -1185,7 +1186,8 @@ def _find_all_relationship_paths_internal(
 
     except Exception as e:
         return {
-            "error": f"Error finding all relationship paths: {e}\n{traceback.format_exc()}"
+            "status": "error",
+            "message": f"Error finding all relationship paths: {e}\n{traceback.format_exc()}",
         }
 
 

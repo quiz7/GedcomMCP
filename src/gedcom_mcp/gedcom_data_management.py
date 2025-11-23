@@ -461,7 +461,10 @@ def batch_update_person_attributes(context: GedcomContext, updates: list) -> dic
         Dictionary with results of the batch operation
     """
     if not context.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return {
+            "status": "error",
+            "message": "No GEDCOM file loaded. Please load a GEDCOM file first.",
+        }
 
     results = {
         "total_updates": len(updates),

@@ -56,9 +56,17 @@ def save_gedcom_file(file_path: str, gedcom_ctx: GedcomContext) -> str:
     if not gedcom_ctx.gedcom_parser:
         return "No GEDCOM data in memory to save."
 
+    # Validate file path for security
+    try:
+        from .fastmcp_server import validate_gedcom_path
+
+        validated_path = validate_gedcom_path(file_path)
+    except ValueError as e:
+        return f"Error: Invalid file path - {str(e)}"
+
     try:
         # Use the GEDCOM library's built-in save method
-        with open(file_path, "w") as f:
+        with open(validated_path, "w") as f:
             gedcom_ctx.gedcom_parser.save_gedcom(f)
 
         return f"Successfully saved GEDCOM data to {file_path}"
@@ -1012,12 +1020,18 @@ def fuzzy_search_records(
     except ImportError:
         return [
             {
-                "error": "fuzzywuzzy library not installed. Please install it with: pip install fuzzywuzzy python-levenshtein"
+                "status": "error",
+                "message": "fuzzywuzzy library not installed. Please install it with: pip install fuzzywuzzy python-levenshtein",
             }
         ]
 
     if not gedcom_ctx.gedcom_parser:
-        return [{"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}]
+        return [
+            {
+                "status": "error",
+                "message": "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            }
+        ]
 
     # Prepare list of names for fuzzy matching
     choices = []
