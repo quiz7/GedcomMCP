@@ -184,6 +184,37 @@ def handle_gedcom_error(error: Exception) -> str:
         return f"An unexpected error occurred: {str(error)}"
 
 
+def create_error_response(
+    message: str, suggestion: str = None, error_code: str = None
+) -> dict:
+    """Create a standardized error response dictionary.
+
+    Args:
+        message: Error message describing what went wrong
+        suggestion: Optional recovery suggestion for the user
+        error_code: Optional error code for programmatic handling
+
+    Returns:
+        Standardized error response dictionary
+    """
+    response = {"status": "error", "message": message}
+    if suggestion:
+        response["recovery_suggestion"] = suggestion
+    if error_code:
+        response["error_code"] = error_code
+    return response
+
+
+def validate_gedcom_path(file_path: str) -> Path:
+    """Validate GEDCOM file path for security"""
+    path = Path(file_path).resolve()
+    if not path.exists() or not path.is_file():
+        raise ValueError(f"Invalid file path: {file_path}")
+    if path.suffix.lower() != ".ged":
+        raise ValueError("File must have .ged extension")
+    return path
+
+
 # Import our modularized components
 from .gedcom_context import GedcomContext, get_gedcom_context, _rebuild_lookups
 from .gedcom_models import PersonDetails, PersonRelationships, NodePriority
@@ -258,7 +289,44 @@ from .gedcom_analysis import (
     _find_potential_duplicates_internal,
     get_common_ancestors,
 )
-from .gedcom_constants import EVENT_TYPES, ATTRIBUTE_TYPES
+from .gedcom_constants import (
+    EVENT_TYPES,
+    ATTRIBUTE_TYPES,
+    MAX_REASONABLE_DISTANCE,
+    DEFAULT_PAGE_SIZE,
+    BIRTH_YEAR_PROXIMITY_THRESHOLD,
+    CONNECTIVITY_CHECK_DEPTH,
+    DEFAULT_FUZZY_THRESHOLD,
+    DEFAULT_MAX_RESULTS,
+    MAX_PAGE_SIZE_PERSON_FAMILY,
+    MAX_PAGE_SIZE_OTHERS,
+    DEFAULT_MAX_DISTANCE,
+    DEFAULT_MAX_DISTANCE_ALL_PATHS,
+    DEFAULT_MAX_PATHS,
+    DEFAULT_MAX_LEVEL,
+    DEFAULT_GENERATIONS,
+    DEFAULT_UPDATE_INTERVAL,
+)
+
+
+class GedcomConfig(BaseModel):
+    """Configuration model for GEDCOM MCP server settings"""
+
+    fuzzy_threshold: int = Field(ge=0, le=100, default=DEFAULT_FUZZY_THRESHOLD)
+    max_results: int = Field(ge=1, le=1000, default=DEFAULT_MAX_RESULTS)
+    page_size: int = Field(ge=1, le=1000, default=DEFAULT_PAGE_SIZE)
+    max_page_size_person_family: int = Field(
+        ge=1, le=2000, default=MAX_PAGE_SIZE_PERSON_FAMILY
+    )
+    max_page_size_others: int = Field(ge=1, le=1000, default=MAX_PAGE_SIZE_OTHERS)
+    max_distance: int = Field(ge=1, le=200, default=DEFAULT_MAX_DISTANCE)
+    max_distance_all_paths: int = Field(
+        ge=1, le=100, default=DEFAULT_MAX_DISTANCE_ALL_PATHS
+    )
+    max_paths: int = Field(ge=1, le=50, default=DEFAULT_MAX_PATHS)
+    max_level: int = Field(ge=1, le=50, default=DEFAULT_MAX_LEVEL)
+    generations: int = Field(ge=1, le=10, default=DEFAULT_GENERATIONS)
+    update_interval: int = Field(ge=100, le=10000, default=DEFAULT_UPDATE_INTERVAL)
 
 
 class GedcomError(Exception):
@@ -1133,7 +1201,10 @@ async def get_ancestors(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
 
     try:
         ancestors = _get_ancestors_internal(
@@ -1143,9 +1214,9 @@ async def get_ancestors(
         if format == "flat":
             # Apply pagination for flat format
             if page < 1:
-                return {"error": "Page number must be 1 or greater"}
+                return create_error_response("Page number must be 1 or greater")
             if page_size < 1 or page_size > 500:
-                return {"error": "Page size must be between 1 and 500"}
+                return create_error_response("Page size must be between 1 and 500")
 
             total_count = len(ancestors)
             total_pages = (total_count + page_size - 1) // page_size
@@ -1176,7 +1247,7 @@ async def get_ancestors(
             else:
                 return {"ancestors": str(ancestors)}
     except Exception as e:
-        return {"error": f"Error getting ancestors: {e}"}
+        return create_error_response(f"Error getting ancestors: {e}")
 
 
 @mcp.tool()
@@ -1438,13 +1509,12 @@ async def update_configuration(ctx: Context, config_updates: str) -> dict:
         }
 
     except json.JSONDecodeError as e:
-        return {
-            "status": "error",
-            "message": f"Invalid JSON in config_updates: {e}",
-            "example": '{"fuzzy_threshold": 85, "max_results": 100}',
-        }
+        return create_error_response(
+            f"Invalid JSON in config_updates: {e}",
+            'Example: {"fuzzy_threshold": 85, "max_results": 100}',
+        )
     except Exception as e:
-        return {"status": "error", "message": f"Failed to update configuration: {e}"}
+        return create_error_response(f"Failed to update configuration: {e}")
 
 
 @mcp.tool()
@@ -1470,7 +1540,10 @@ async def get_descendants(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
 
     try:
         descendants = _get_descendants_internal(
@@ -1480,9 +1553,9 @@ async def get_descendants(
         if format == "flat":
             # Apply pagination for flat format
             if page < 1:
-                return {"error": "Page number must be 1 or greater"}
+                return create_error_response("Page number must be 1 or greater")
             if page_size < 1 or page_size > 500:
-                return {"error": "Page size must be between 1 and 500"}
+                return create_error_response("Page size must be between 1 and 500")
 
             total_count = len(descendants)
             total_pages = (total_count + page_size - 1) // page_size
@@ -1513,7 +1586,7 @@ async def get_descendants(
             else:
                 return {"descendants": str(descendants)}
     except Exception as e:
-        return {"error": f"Error getting descendants: {e}"}
+        return create_error_response(f"Error getting descendants: {e}")
 
 
 @mcp.tool()
@@ -1532,7 +1605,10 @@ async def find_all_paths_to_ancestor(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
 
     try:
         paths = _find_all_paths_to_ancestor_internal(
@@ -1540,9 +1616,9 @@ async def find_all_paths_to_ancestor(
         )
 
         if not paths:
-            return {
-                "error": f"No paths found from {start_person_id} to ancestor {ancestor_id}"
-            }
+            return create_error_response(
+                f"No paths found from {start_person_id} to ancestor {ancestor_id}"
+            )
 
         # Enrich paths with person names
         enriched_paths = []
@@ -1570,9 +1646,7 @@ async def find_all_paths_to_ancestor(
         return result
 
     except Exception as e:
-        return {
-            "error": f"Error finding paths to ancestor: {e}\n{traceback.format_exc()}"
-        }
+        return create_error_response(f"Error finding paths to ancestor: {e}")
 
 
 @mcp.tool()
@@ -1591,13 +1665,16 @@ async def get_persons_batch(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
 
     try:
         # Parse the person IDs
         ids = [pid.strip() for pid in person_ids.split(",") if pid.strip()]
         if not ids:
-            return {"error": "No valid person IDs provided"}
+            return create_error_response("No valid person IDs provided")
 
         # Define field sets
         basic_fields = {"id", "name", "birth_date", "death_date"}
@@ -1637,9 +1714,9 @@ async def get_persons_batch(
             valid_fields = full_fields
             fields_to_include = custom_fields & valid_fields
             if not fields_to_include:
-                return {
-                    "error": f"No valid fields specified. Available fields: {', '.join(sorted(valid_fields))}"
-                }
+                return create_error_response(
+                    f"No valid fields specified. Available fields: {', '.join(sorted(valid_fields))}"
+                )
 
         # Collect person details
         persons_data = []
@@ -1683,7 +1760,7 @@ async def get_persons_batch(
         return result
 
     except Exception as e:
-        return {"error": f"Error getting persons batch: {e}"}
+        return create_error_response(f"Error getting persons batch: {e}")
 
 
 @mcp.tool()
@@ -1722,17 +1799,18 @@ async def query_people_by_criteria(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {
-            "status": "error",
-            "message": "No family tree file is currently loaded",
-            "recovery_suggestion": "Use the load_gedcom tool to open a GEDCOM file first",
-        }
+        return create_error_response(
+            "No family tree file is currently loaded",
+            "Use the load_gedcom tool to open a GEDCOM file first",
+        )
 
     # Validate parameters
     if page < 1:
-        return {"error": "Page number must be 1 or greater"}
+        return create_error_response("Page number must be 1 or greater")
     if page_size < 1 or page_size > MAX_PAGE_SIZE_OTHERS:
-        return {"error": f"Page size must be between 1 and {MAX_PAGE_SIZE_OTHERS}"}
+        return create_error_response(
+            f"Page size must be between 1 and {MAX_PAGE_SIZE_OTHERS}"
+        )
 
     try:
         # Build filter criteria from individual parameters
@@ -1753,22 +1831,22 @@ async def query_people_by_criteria(
                         max_year = int(parts[1].strip())
                         filter_criteria["birth_year_range"] = [min_year, max_year]
                     except ValueError:
-                        return {
-                            "error": f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                        }
+                        return create_error_response(
+                            f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
+                        )
                 else:
-                    return {
-                        "error": f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                    }
+                    return create_error_response(
+                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
+                    )
             else:
                 # Single year format
                 try:
                     year = int(birth_year_range.strip())
                     filter_criteria["birth_year_range"] = [year, year]
                 except ValueError:
-                    return {
-                        "error": f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                    }
+                    return create_error_response(
+                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
+                    )
 
         # Handle death_year_range filter
         if death_year_range is not None:
@@ -1784,22 +1862,22 @@ async def query_people_by_criteria(
                         max_year = int(parts[1].strip())
                         filter_criteria["death_year_range"] = [min_year, max_year]
                     except ValueError:
-                        return {
-                            "error": f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                        }
+                        return create_error_response(
+                            f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                        )
                 else:
-                    return {
-                        "error": f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                    }
+                    return create_error_response(
+                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                    )
             else:
                 # Single year format
                 try:
                     year = int(death_year_range.strip())
                     filter_criteria["death_year_range"] = [year, year]
                 except ValueError:
-                    return {
-                        "error": f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                    }
+                    return create_error_response(
+                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                    )
 
         # Handle place filters
         if birth_place_contains is not None:
@@ -1816,7 +1894,9 @@ async def query_people_by_criteria(
             if gender.upper() in ["M", "F"]:
                 filter_criteria["gender"] = gender.upper()
             else:
-                return {"error": f"Invalid gender: {gender}. Must be 'M' or 'F'"}
+                return create_error_response(
+                    f"Invalid gender: {gender}. Must be 'M' or 'F'"
+                )
 
         # Handle boolean filters
         if has_children is not None:
@@ -1892,7 +1972,7 @@ async def query_people_by_criteria(
         return result
 
     except Exception as e:
-        return {"error": f"Error querying people by criteria: {e}"}
+        return create_error_response(f"Error querying people by criteria: {e}")
 
 
 @mcp.tool()
@@ -1908,7 +1988,10 @@ async def get_all_entity_ids(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return {"error": "No GEDCOM file loaded. Please load a GEDCOM file first."}
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
 
     all_ids = []
     total_count = 0
@@ -1933,15 +2016,17 @@ async def get_all_entity_ids(
             all_ids = [place["name"] for place in places_data]
             max_page_size = 500  # Max page size for places
         else:
-            return {
-                "error": "Invalid entity_type. Must be 'person', 'family', 'place', 'note', or 'source'."
-            }
+            return create_error_response(
+                "Invalid entity_type. Must be 'person', 'family', 'place', 'note', or 'source'."
+            )
 
         # Validate parameters
         if page < 1:
-            return {"error": "Page number must be 1 or greater"}
+            return create_error_response("Page number must be 1 or greater")
         if page_size < 1 or page_size > max_page_size:
-            return {"error": f"Page size must be between 1 and {max_page_size}"}
+            return create_error_response(
+                f"Page size must be between 1 and {max_page_size}"
+            )
 
         all_ids.sort()  # Sort for consistent ordering
         total_count = len(all_ids)
@@ -1966,7 +2051,7 @@ async def get_all_entity_ids(
         return result
 
     except Exception as e:
-        return {"error": f"Error getting all {entity_type} IDs: {e}"}
+        return create_error_response(f"Error getting all {entity_type} IDs: {e}")
 
 
 @mcp.tool()
@@ -2158,9 +2243,7 @@ async def get_common_ancestors(
         return result
 
     except Exception as e:
-        return {
-            "error": f"Error finding common ancestors: {e}\n{traceback.format_exc()}"
-        }
+        return create_error_response(f"Error finding common ancestors: {e}")
 
 
 @mcp.tool()
@@ -2239,7 +2322,7 @@ async def find_person_families(person_id: str, ctx: Context) -> dict:
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser or person_id not in gedcom_ctx.individual_lookup:
-        return {"error": f"Person with ID {person_id} not found."}
+        return create_error_response(f"Person with ID {person_id} not found.")
 
     person = gedcom_ctx.individual_lookup[person_id]
 
@@ -2532,9 +2615,11 @@ async def get_person_attributes(person_id: str, ctx: Context) -> dict:
         attributes = _get_person_attributes_internal(person_id, gedcom_ctx)
         if attributes:
             return {"attributes": attributes}
-        return {"error": f"Person with ID {person_id} not found or has no attributes."}
+        return create_error_response(
+            f"Person with ID {person_id} not found or has no attributes."
+        )
     except Exception as e:
-        return {"error": f"Error retrieving attributes: {e}"}
+        return create_error_response(f"Error retrieving attributes: {e}")
 
 
 @mcp.tool()
@@ -2609,10 +2694,10 @@ async def batch_update_person_attributes(updates: str, ctx: Context) -> dict:
     try:
         update_list = json.loads(updates) if updates else []
     except json.JSONDecodeError as e:
-        return {"error": f"Invalid JSON in updates parameter: {e}"}
+        return create_error_response(f"Invalid JSON in updates parameter: {e}")
 
     if not isinstance(update_list, list):
-        return {"error": "Updates parameter must be a JSON array"}
+        return create_error_response("Updates parameter must be a JSON array")
 
     return _batch_update_person_attributes_internal(gedcom_ctx, update_list)
 

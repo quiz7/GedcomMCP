@@ -110,7 +110,9 @@ def get_person_record(
         return None
 
 
-def _extract_person_details(element: IndividualElement, gedcom_ctx) -> PersonDetails:
+def _extract_person_details(
+    element: IndividualElement, gedcom_ctx: GedcomContext
+) -> PersonDetails:
     """Extract person details from a GEDCOM individual element"""
     person_id = element.get_pointer()
 
