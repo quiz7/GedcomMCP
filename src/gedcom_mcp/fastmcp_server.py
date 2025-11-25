@@ -2326,7 +2326,7 @@ async def find_shortest_relationship_path(
         return result
 
     except Exception as e:
-        return f"Error finding relationship path: {e}"
+        return create_error_response(f"Error finding relationship path: {e}")
 
 
 @mcp.tool()
@@ -2361,9 +2361,9 @@ async def find_all_relationship_paths(
     person2 = get_person_record(person2_id, gedcom_ctx)
 
     if not person1:
-        return f"Person not found: {person1_id}"
+        return create_error_response(f"Person not found: {person1_id}")
     if not person2:
-        return f"Person not found: {person2_id}"
+        return create_error_response(f"Person not found: {person2_id}")
 
     if person1_id == person2_id:
         return f'{"paths": [{"path": ["{person1_id}"], "distance": 0, "relationship_chain": ["self"], "description": "Same person"}], "total_paths": 1}'
@@ -2389,9 +2389,7 @@ async def find_all_relationship_paths(
             return json.dumps(result, indent=2)
         return result
     except Exception as e:
-        import traceback
-
-        return f"Error finding all relationship paths: {e}\n{traceback.format_exc()}"
+        return create_error_response(f"Error finding all relationship paths: {e}")
 
 
 @mcp.tool()
@@ -2459,7 +2457,7 @@ async def update_person(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser or person_id not in gedcom_ctx.individual_lookup:
-        return f"Error: Person with ID {person_id} not found."
+        return create_error_response(f"Person with ID {person_id} not found.")
 
     try:
         # Update name and gender using the new internal function
@@ -2607,9 +2605,9 @@ async def remove_parent_from_family(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser or parent_id not in gedcom_ctx.individual_lookup:
-        return f"Error: Parent with ID {parent_id} not found."
+        return create_error_response(f"Parent with ID {parent_id} not found.")
     if family_id not in gedcom_ctx.family_lookup:
-        return f"Error: Family with ID {family_id} not found."
+        return create_error_response(f"Family with ID {family_id} not found.")
 
     result = _remove_parent_from_family_internal(gedcom_ctx, parent_id, family_id)
 
@@ -2668,7 +2666,9 @@ async def dissolve_marriage(
             family.get_child_elements().remove(element)
 
         if not spouses:
-            return f"Error: No spouses found in family {family_id} to dissolve."
+            return create_error_response(
+                f"No spouses found in family {family_id} to dissolve."
+            )
 
         # Remove FAMS from each spouse
         for spouse_id in spouses:
@@ -2703,7 +2703,7 @@ async def delete_person(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser or person_id not in gedcom_ctx.individual_lookup:
-        return f"Error: Person with ID {person_id} not found."
+        return create_error_response(f"Person with ID {person_id} not found.")
 
     try:
         # Remove from all families
@@ -2770,7 +2770,7 @@ async def update_event_details(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
     result = _update_event_details_internal(
         gedcom_ctx, entity_id, event_type, new_date, new_place, old_date_to_match
@@ -2813,7 +2813,7 @@ async def remove_event(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
     result = _remove_event_internal(gedcom_ctx, entity_id, event_type, date_to_match)
 
@@ -2962,11 +2962,11 @@ async def remove_person_attribute(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser or person_id not in gedcom_ctx.individual_lookup:
-        return f"Error: Person with ID {person_id} not found."
+        return create_error_response(f"Person with ID {person_id} not found.")
 
     attribute_tag = _get_gedcom_tag_from_attribute_type(attribute_type)
     if not attribute_tag:
-        return f"Error: Invalid attribute type '{attribute_type}'."
+        return create_error_response(f"Invalid attribute type '{attribute_type}'.")
 
     try:
         result = _remove_person_attribute_internal(
@@ -2997,7 +2997,7 @@ async def create_source(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
     try:
         source_id = _create_source_internal(gedcom_ctx, title, author, publication)
@@ -3026,7 +3026,7 @@ async def add_note_to_entity(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
     result = _add_note_to_entity_internal(gedcom_ctx, entity_id, note_text)
 
@@ -3055,10 +3055,10 @@ async def delete_note_entity(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
-    if note_id not in gedcom_ctx.note_lookup:
-        return f"Error: Note with ID {note_id} not found."
+        if note_id not in gedcom_ctx.note_lookup:
+            return create_error_response(f"Note with ID {note_id} not found.")
 
     # First, remove all references to this note from all entities
     entities_to_update = []
@@ -3123,7 +3123,7 @@ async def delete_note_from_entity(
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
-        return "Error: No GEDCOM file loaded."
+        return create_error_response("No GEDCOM file loaded.")
 
     # Handle note reference removal
     if note_id:
@@ -3131,10 +3131,10 @@ async def delete_note_from_entity(
             entity_id
         ) or gedcom_ctx.family_lookup.get(entity_id)
         if not entity:
-            return f"Error: Entity with ID {entity_id} not found."
+            return create_error_response(f"Entity with ID {entity_id} not found.")
 
         if note_id not in gedcom_ctx.note_lookup:
-            return f"Error: Note with ID {note_id} not found."
+            return create_error_response(f"Note with ID {note_id} not found.")
 
         try:
             note_to_remove = None
@@ -3149,7 +3149,9 @@ async def delete_note_from_entity(
                 gedcom_ctx.clear_caches()
                 return f"Successfully removed reference to note {note_id} from {entity_id}. Note entity still exists."
             else:
-                return f"Error: No reference to note {note_id} found in {entity_id}."
+                return create_error_response(
+                    f"No reference to note {note_id} found in {entity_id}."
+                )
         except Exception as e:
             return f"Error removing note reference: {e}"
 
@@ -3159,7 +3161,7 @@ async def delete_note_from_entity(
             entity_id
         ) or gedcom_ctx.family_lookup.get(entity_id)
         if not entity:
-            return f"Error: Entity with ID {entity_id} not found."
+            return create_error_response(f"Entity with ID {entity_id} not found.")
 
         try:
             note_to_delete = None
@@ -3178,11 +3180,13 @@ async def delete_note_from_entity(
                 gedcom_ctx.clear_caches()
                 return f"Successfully deleted note starting with '{note_starts_with}' from {entity_id}."
             else:
-                return f"Error: No inline note found for {entity_id} that starts with '{note_starts_with}'."
+                return create_error_response(
+                    f"No inline note found for {entity_id} that starts with '{note_starts_with}'."
+                )
         except Exception as e:
             return f"Error deleting note: {e}"
 
-    return "Error: Either note_starts_with or note_id must be provided."
+    return create_error_response("Either note_starts_with or note_id must be provided.")
 
 
 @mcp.tool()
@@ -3213,7 +3217,9 @@ async def save_gedcom(
 
     save_path = file_path or gedcom_ctx.gedcom_file_path
     if not save_path:
-        return "Error: No file path specified and no original file path is known. Please provide a file_path."
+        return create_error_response(
+            "No file path specified and no original file path is known. Please provide a file_path."
+        )
 
     return save_gedcom_file(save_path, gedcom_ctx)
 
@@ -3648,7 +3654,7 @@ if NAME_UTILS_AVAILABLE:
         ctx: Context,
         name_string: Annotated[str, Field(description="The name string to normalize")],
     ) -> str:
-    """Normalize a name for comparison purposes.
+        """Normalize a name for comparison purposes.
 
         Returns:
             A normalized version of name
