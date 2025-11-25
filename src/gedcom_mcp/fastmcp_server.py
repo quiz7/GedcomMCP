@@ -416,9 +416,6 @@ async def load_gedcom(
 ) -> dict:
     """Load and parse a GEDCOM file.
 
-    Args:
-        file_path: Path to the GEDCOM file to load
-
     Returns:
         Structured data with file statistics and loading confirmation
 
@@ -540,9 +537,6 @@ async def get_person_details(
 ) -> dict:
     """Get detailed information about a person.
 
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
-
     Returns:
         Comprehensive person details including name, events, attributes, and relationships
 
@@ -579,9 +573,6 @@ async def get_events(
     ctx: Context,
 ) -> dict:
     """Get all life events for a person.
-
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
 
     Returns:
         Comprehensive list of life events (birth, death, marriage, etc.) with dates and places
@@ -621,9 +612,6 @@ async def get_notes(
 ) -> dict:
     """Get all notes and research comments for a person or family.
 
-    Args:
-        entity_id: GEDCOM entity ID (person "@I1@" or family "@F1@")
-
     Returns:
         List of notes with text, sources, dates, and references
 
@@ -662,9 +650,6 @@ async def get_sources(
     ctx: Context,
 ) -> dict:
     """Get all source citations and references for a person or family.
-
-    Args:
-        entity_id: GEDCOM entity ID (person "@I1@" or family "@F1@")
 
     Returns:
         List of sources with citations, titles, authors, and publication info
@@ -708,10 +693,6 @@ async def gedcom_search(
     ] = "all",
 ) -> dict:
     """Search across the GEDCOM file for people, places, events, etc.
-
-    Args:
-        query: The search term to look for
-        search_type: Type of search - 'all', 'people', 'places', 'events', 'families'
 
     Returns:
         Search results organized by category
@@ -822,9 +803,6 @@ async def get_person_attributes(
 ) -> dict:
     """Get all attributes for a person.
 
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
-
     Returns:
         List of all attributes associated with the person
 
@@ -861,9 +839,6 @@ async def find_person(
     ctx: Context,
 ) -> dict:
     """Search for persons by name.
-
-    Args:
-        name: Name to search for (partial matches supported)
 
     Returns:
         Dictionary with search results containing count and person details.
@@ -913,9 +888,6 @@ async def get_occupation(
     ctx: Context,
 ) -> dict:
     """Get the occupation of a person.
-
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
 
     Returns:
         Occupation information if available.
@@ -970,9 +942,6 @@ async def get_places(
 ) -> dict:
     """Get information about places mentioned in the GEDCOM file.
 
-    Args:
-        query: Optional search term to filter places (case insensitive)
-
     Returns:
         List of places with their associated events and people.
 
@@ -1013,9 +982,6 @@ async def get_relationships(
 ) -> dict:
     """Get family relationships for a person.
 
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
-
     Returns:
         Family relationship information including parents, spouses, and children.
 
@@ -1053,9 +1019,6 @@ async def get_timeline(
     ctx: Context,
 ) -> dict:
     """Generate a chronological timeline of life events for a person.
-
-    Args:
-        person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
 
     Returns:
         Chronologically ordered list of life events with dates and places.
@@ -1100,11 +1063,6 @@ async def fuzzy_search_person(
     ] = 50,
 ) -> dict:
     """Search for persons with fuzzy name matching.
-
-    Args:
-        name: Search term to match against person names
-        threshold: Minimum similarity score (0-100, default: 80)
-        max_results: Maximum number of results to return (default: 50)
 
     Returns:
         List of persons with similar names.
@@ -1168,10 +1126,6 @@ async def add_person(
 ) -> dict:
     """Add a new person to the GEDCOM data.
 
-    Args:
-        name: Full name of the person (e.g., "John Smith", "Mary Johnson")
-        gender: Gender of the person ("M" for male, "F" for female)
-
     Returns:
         Success message with the new person's ID.
 
@@ -1211,9 +1165,6 @@ async def get_attribute_statistics(
     Retrieves statistics for a given GEDCOM attribute (e.g., 'OCCU' or 'Occupation')
     across all individuals and families in the loaded GEDCOM file.
 
-    Args:
-        attribute_type: The GEDCOM attribute tag (e.g., 'OCCU') or its human-readable
-                        name (e.g., 'Occupation').
     Returns:
         A dictionary where keys are attribute values and values are their counts.
         Returns an error message if no GEDCOM file is loaded or if an invalid/unsupported attribute type is provided.
@@ -1295,13 +1246,6 @@ async def get_ancestors(
     ] = 100,
 ) -> dict:
     """Get ancestors of a person for specified number of generations, with optional formatting and pagination.
-
-    Args:
-        person_id: The ID of the person to get ancestors for.
-        generations: The number of generations to retrieve.
-        format: The format of the output ('nested' for tree structure, 'flat' for a list with levels).
-        page: Page number (starting from 1) for 'flat' format.
-        page_size: Number of entries per page (default 100, max 500) for 'flat' format.
 
     Returns:
         Dictionary with ancestors data.
@@ -1666,13 +1610,6 @@ async def get_descendants(
 ) -> dict:
     """Get descendants of a person for specified number of generations, with optional formatting and pagination.
 
-    Args:
-        person_id: The ID of the person to get descendants for.
-        generations: The number of generations to retrieve.
-        format: The format of the output ('nested' for tree structure, 'flat' for a list with levels).
-        page: Page number (starting from 1) for 'flat' format.
-        page_size: Number of entries per page (default 100, max 500) for 'flat' format.
-
     Returns:
         Dictionary with descendants data.
     """
@@ -1814,13 +1751,8 @@ async def get_persons_batch(
 ) -> dict:
     """Get details for one or multiple persons by their IDs. This is the primary tool for retrieving person details.
 
-    Args:
-        person_ids: Comma-separated list of person IDs (e.g., "@I1@,@I2@,@I3@") or a single person ID.
-        include_fields: Fields to include - 'basic', 'extended', 'full', or custom comma-separated list
-                       - basic: id, name, birth_date, death_date
-                       - extended: basic + birth_place, death_place, gender, occupation
-                       - full: all available fields including relationships
-                       - custom: specify fields like 'id,name,occupation,parents'
+    Returns:
+        Dictionary with person details and metadata about the request.
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
@@ -1994,20 +1926,8 @@ async def query_people_by_criteria(
 ) -> dict:
     """Query people using flexible criteria with pagination
 
-    Args:
-        occupation: Exact match for occupation (e.g., "farmer", "teacher")
-        birth_year_range: Year range as "min_year,max_year" or single year (e.g., "1800,1850" or "1800")
-        death_year_range: Year range as "min_year,max_year" or single year, or "null" for living people
-        birth_place_contains: Substring match in birth place (case insensitive, e.g., "London")
-        death_place_contains: Substring match in death place (case insensitive, e.g., "Paris")
-        name_contains: Substring match in person name (case insensitive, e.g., "Smith")
-        gender: "M" for male, "F" for female, or None for any
-        has_children: True for people with children, False for childless, None for any
-        has_parents: True for people with known parents, False for orphans, None for any
-        has_spouses: True for people with spouses, False for unmarried, None for any
-        is_living: True for living people (no death date), False for deceased, None for any
-        page: Page number (starting from 1)
-        page_size: Number of people per page (default 100, max 500)
+    Returns:
+        Dictionary with search results and pagination information.
     """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
@@ -2301,7 +2221,11 @@ async def find_shortest_relationship_path(
         int, Field(description="Minimum relationship distance (default: 0)")
     ] = 0,
 ) -> str:
-    """Find the shortest relationship path between two people"""
+    """Find the shortest relationship path between two people
+
+    Returns:
+        JSON string containing the path information with distance and relationship description.
+    """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
         return "No GEDCOM file loaded. Please load a GEDCOM file first."
@@ -2423,7 +2347,11 @@ async def find_all_relationship_paths(
         int, Field(description="Maximum number of paths to return (default: 10)")
     ] = 10,
 ) -> str:
-    """Find all relationship paths between two people"""
+    """Find all relationship paths between two people
+
+    Returns:
+        JSON string containing all paths found between the two people.
+    """
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
         return "No GEDCOM file loaded. Please load a GEDCOM file first."
@@ -2525,15 +2453,6 @@ async def update_person(
     ] = None,
 ) -> str:
     """Updates the details for an existing person.
-
-    Args:
-        person_id: The ID of the person to update (e.g., "@I123@").
-        name: The new full name. Only updated if explicitly provided (not None).
-        gender: The new gender ('M' or 'F'). Only updated if explicitly provided (not None).
-        birth_date: The new birth date. Only updated if explicitly provided (not None).
-        birth_place: The new birth place. Only updated if explicitly provided (not None).
-        death_date: The new death date. Only updated if explicitly provided (not None).
-        death_place: The new death place. Only updated if explicitly provided (not None).
 
     Returns:
         A confirmation or error message.
@@ -2779,9 +2698,6 @@ async def delete_person(
     This is a destructive operation. It will remove the person and update
     any families they were a part of.
 
-    Args:
-        person_id: The ID of the person to delete.
-
     Returns:
         A confirmation or error message.
     """
@@ -2975,12 +2891,6 @@ async def batch_update_person_attributes(
 ) -> dict:
     """Update multiple person attributes in a single operation.
 
-    Args:
-        updates: JSON string containing an array of update objects. Each update object must have:
-                - person_id: GEDCOM person ID (e.g., "@I1@", "@I123@")
-                - attribute_tag: GEDCOM attribute tag (e.g., "OCCU" for occupation, "RESI" for residence, "TITL" for title)
-                - new_value: The new value for the attribute (string)
-
     Returns:
         Dictionary with batch operation results:
         - total_updates: Total number of updates attempted
@@ -3081,11 +2991,6 @@ async def create_source(
     ] = "",
 ) -> str:
     """Creates a new source with a unique ID.
-
-    Args:
-        title: The title of the source.
-        author: The author of the source (optional).
-        publication: Publication information (optional).
 
     Returns:
         The ID of the newly created source.
@@ -3211,12 +3116,7 @@ async def delete_note_from_entity(
 
     This function can either:
     1. Delete an inline note based on the beginning of its text
-    2. Remove a reference to a note entity (but not delete the note entity itself)
-
-    Args:
-        entity_id: The ID of the person or family.
-        note_starts_with: The first few words of an inline note to identify it.
-        note_id: The ID of a note entity to remove the reference to (e.g., '@N123@').
+    2. Remove a reference to a note entity (but Not delete the note entity itself)
 
     Returns:
         A confirmation or error message.
@@ -3303,10 +3203,6 @@ async def save_gedcom(
     ] = None,
 ) -> str:
     """Saves the in-memory GEDCOM data back to a file.
-
-    Args:
-        file_path: The path to save the file to. If not provided, it will
-                   overwrite the original file that was loaded.
 
     Returns:
         A confirmation or error message.
@@ -3707,10 +3603,6 @@ if DATE_UTILS_AVAILABLE:
     ) -> str:
         """Validate that birth and death dates are consistent.
 
-        Args:
-            birth_date: Birth date string to validate
-            death_date: Death date string to validate
-
         Returns:
             Validation result with any error messages
         """
@@ -3756,13 +3648,10 @@ if NAME_UTILS_AVAILABLE:
         ctx: Context,
         name_string: Annotated[str, Field(description="The name string to normalize")],
     ) -> str:
-        """Normalize a name for comparison purposes.
-
-        Args:
-            name_string: The name string to normalize
+    """Normalize a name for comparison purposes.
 
         Returns:
-            A normalized version of the name
+            A normalized version of name
         """
         try:
             normalized = normalize_name(name_string)
@@ -3778,9 +3667,6 @@ if NAME_UTILS_AVAILABLE:
         ],
     ) -> str:
         """Find common variants of a name.
-
-        Args:
-            name_string: The name string to find variants for
 
         Returns:
             A list of common name variants
@@ -3804,11 +3690,8 @@ if PLACE_UTILS_AVAILABLE:
     ) -> str:
         """Normalize a place name.
 
-        Args:
-            place_string: The place string to normalize
-
         Returns:
-            A detailed breakdown of the normalized place information
+            A detailed breakdown of normalized place information
         """
         try:
             normalized_place = normalize_place_name(place_string)
@@ -3834,9 +3717,6 @@ if PLACE_UTILS_AVAILABLE:
         place_string: Annotated[str, Field(description="The place string to parse")],
     ) -> str:
         """Extract geographic hierarchy from a place string.
-
-        Args:
-            place_string: The place string to parse
 
         Returns:
             Dictionary with geographic components (city, county, state_province, country)
