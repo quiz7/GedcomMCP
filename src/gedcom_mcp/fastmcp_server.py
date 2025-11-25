@@ -33,7 +33,7 @@ from functools import total_ordering
 from dataclasses import dataclass, field
 import time
 import re
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, Annotated, Literal
 
 # Try to import unidecode for text normalization
 try:
@@ -410,7 +410,10 @@ mcp = FastMCP("gedcom-mcp-server")
 
 
 @mcp.tool()
-async def load_gedcom(file_path: str, ctx: Context) -> dict:
+async def load_gedcom(
+    file_path: Annotated[str, Field(description="Path to the GEDCOM file to load")],
+    ctx: Context,
+) -> dict:
     """Load and parse a GEDCOM file.
 
     Args:
@@ -529,7 +532,12 @@ async def load_gedcom(file_path: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_person_details(person_id: str, ctx: Context) -> dict:
+async def get_person_details(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get detailed information about a person.
 
     Args:
@@ -564,7 +572,12 @@ async def get_person_details(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_events(person_id: str, ctx: Context) -> dict:
+async def get_events(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get all life events for a person.
 
     Args:
@@ -600,7 +613,12 @@ async def get_events(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_notes(entity_id: str, ctx: Context) -> dict:
+async def get_notes(
+    entity_id: Annotated[
+        str, Field(description="GEDCOM entity ID (person '@I1@' or family '@F1@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get all notes and research comments for a person or family.
 
     Args:
@@ -637,7 +655,12 @@ async def get_notes(entity_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_sources(entity_id: str, ctx: Context) -> dict:
+async def get_sources(
+    entity_id: Annotated[
+        str, Field(description="GEDCOM entity ID (person '@I1@' or family '@F1@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get all source citations and references for a person or family.
 
     Args:
@@ -674,7 +697,16 @@ async def get_sources(entity_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def gedcom_search(query: str, ctx: Context, search_type: str = "all") -> dict:
+async def gedcom_search(
+    query: Annotated[str, Field(description="The search term to look for")],
+    ctx: Context,
+    search_type: Annotated[
+        str,
+        Field(
+            description="Type of search - 'all', 'people', 'places', 'events', 'families'"
+        ),
+    ] = "all",
+) -> dict:
     """Search across the GEDCOM file for people, places, events, etc.
 
     Args:
@@ -782,7 +814,12 @@ async def get_statistics(ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_person_attributes(person_id: str, ctx: Context) -> dict:
+async def get_person_attributes(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get all attributes for a person.
 
     Args:
@@ -817,7 +854,12 @@ async def get_person_attributes(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def find_person(name: str, ctx: Context) -> dict:
+async def find_person(
+    name: Annotated[
+        str, Field(description="Name to search for (partial matches supported)")
+    ],
+    ctx: Context,
+) -> dict:
     """Search for persons by name.
 
     Args:
@@ -864,7 +906,12 @@ async def find_person(name: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_occupation(person_id: str, ctx: Context) -> dict:
+async def get_occupation(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get the occupation of a person.
 
     Args:
@@ -914,7 +961,13 @@ async def get_occupation(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_places(ctx: Context, query: Optional[str] = None) -> dict:
+async def get_places(
+    ctx: Context,
+    query: Annotated[
+        Optional[str],
+        Field(description="Optional search term to filter places (case insensitive)"),
+    ] = None,
+) -> dict:
     """Get information about places mentioned in the GEDCOM file.
 
     Args:
@@ -952,7 +1005,12 @@ async def get_places(ctx: Context, query: Optional[str] = None) -> dict:
 
 
 @mcp.tool()
-async def get_relationships(person_id: str, ctx: Context) -> dict:
+async def get_relationships(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get family relationships for a person.
 
     Args:
@@ -988,7 +1046,12 @@ async def get_relationships(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_timeline(person_id: str, ctx: Context) -> dict:
+async def get_timeline(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Generate a chronological timeline of life events for a person.
 
     Args:
@@ -1025,7 +1088,16 @@ async def get_timeline(person_id: str, ctx: Context) -> dict:
 
 @mcp.tool()
 async def fuzzy_search_person(
-    name: str, ctx: Context, threshold: int = 80, max_results: int = 50
+    name: Annotated[
+        str, Field(description="Search term to match against person names")
+    ],
+    ctx: Context,
+    threshold: Annotated[
+        int, Field(description="Minimum similarity score (0-100, default: 80)")
+    ] = 80,
+    max_results: Annotated[
+        int, Field(description="Maximum number of results to return (default: 50)")
+    ] = 50,
 ) -> dict:
     """Search for persons with fuzzy name matching.
 
@@ -1082,7 +1154,18 @@ async def fuzzy_search_person(
 
 
 @mcp.tool()
-async def add_person(name: str, gender: str, ctx: Context) -> dict:
+async def add_person(
+    name: Annotated[
+        str,
+        Field(
+            description="Full name of the person (e.g., 'John Smith', 'Mary Johnson')"
+        ),
+    ],
+    gender: Annotated[
+        str, Field(description="Gender of the person ('M' for male, 'F' for female)")
+    ],
+    ctx: Context,
+) -> dict:
     """Add a new person to the GEDCOM data.
 
     Args:
@@ -1115,7 +1198,15 @@ async def add_person(name: str, gender: str, ctx: Context) -> dict:
 
 # New tool starts here
 @mcp.tool()
-async def get_attribute_statistics(attribute_type: str, ctx: Context) -> dict:
+async def get_attribute_statistics(
+    attribute_type: Annotated[
+        str,
+        Field(
+            description="The GEDCOM attribute tag (e.g., 'OCCU') or its human-readable name (e.g., 'Occupation')"
+        ),
+    ],
+    ctx: Context,
+) -> dict:
     """
     Retrieves statistics for a given GEDCOM attribute (e.g., 'OCCU' or 'Occupation')
     across all individuals and families in the loaded GEDCOM file.
@@ -1180,12 +1271,28 @@ async def get_attribute_statistics(attribute_type: str, ctx: Context) -> dict:
 
 @mcp.tool()
 async def get_ancestors(
-    person_id: str,
+    person_id: Annotated[
+        str, Field(description="The ID of the person to get ancestors for")
+    ],
     ctx: Context,
-    generations: int = 3,
-    format: str = "nested",
-    page: int = 1,
-    page_size: int = 100,
+    generations: Annotated[
+        int, Field(description="The number of generations to retrieve")
+    ] = 3,
+    format: Annotated[
+        str,
+        Field(
+            description="The format of the output ('nested' for tree structure, 'flat' for a list with levels)"
+        ),
+    ] = "nested",
+    page: Annotated[
+        int, Field(description="Page number (starting from 1) for 'flat' format")
+    ] = 1,
+    page_size: Annotated[
+        int,
+        Field(
+            description="Number of entries per page (default 100, max 500) for 'flat' format"
+        ),
+    ] = 100,
 ) -> dict:
     """Get ancestors of a person for specified number of generations, with optional formatting and pagination.
 
@@ -1251,7 +1358,12 @@ async def get_ancestors(
 
 
 @mcp.tool()
-async def get_family_tree_summary(person_id: str, ctx: Context) -> dict:
+async def get_family_tree_summary(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
     """Get a concise family tree summary showing parents, spouse(s), and children"""
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
@@ -1276,7 +1388,12 @@ async def get_family_tree_summary(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def get_surname_statistics(ctx: Context, surname: str = None) -> dict:
+async def get_surname_statistics(
+    ctx: Context,
+    surname: Annotated[
+        Optional[str], Field(description="Optional surname to filter statistics for")
+    ] = None,
+) -> dict:
     """Get statistics about surnames in the GEDCOM file"""
     gedcom_ctx = get_gedcom_context(ctx)
     if not gedcom_ctx.gedcom_parser:
@@ -1435,7 +1552,12 @@ async def get_configuration(ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def update_configuration(ctx: Context, config_updates: str) -> dict:
+async def update_configuration(
+    ctx: Context,
+    config_updates: Annotated[
+        str, Field(description="JSON string with configuration updates")
+    ],
+) -> dict:
     """Update configuration settings.
 
     Args:
@@ -1519,12 +1641,28 @@ async def update_configuration(ctx: Context, config_updates: str) -> dict:
 
 @mcp.tool()
 async def get_descendants(
-    person_id: str,
+    person_id: Annotated[
+        str, Field(description="The ID of the person to get descendants for")
+    ],
     ctx: Context,
-    generations: int = 3,
-    format: str = "nested",
-    page: int = 1,
-    page_size: int = 100,
+    generations: Annotated[
+        int, Field(description="The number of generations to retrieve")
+    ] = 3,
+    format: Annotated[
+        str,
+        Field(
+            description="The format of the output ('nested' for tree structure, 'flat' for a list with levels)"
+        ),
+    ] = "nested",
+    page: Annotated[
+        int, Field(description="Page number (starting from 1) for 'flat' format")
+    ] = 1,
+    page_size: Annotated[
+        int,
+        Field(
+            description="Number of entries per page (default 100, max 500) for 'flat' format"
+        ),
+    ] = 100,
 ) -> dict:
     """Get descendants of a person for specified number of generations, with optional formatting and pagination.
 
@@ -1591,7 +1729,16 @@ async def get_descendants(
 
 @mcp.tool()
 async def find_all_paths_to_ancestor(
-    start_person_id: str, ancestor_id: str, ctx: Context, max_paths: int = 10
+    start_person_id: Annotated[
+        str, Field(description="The ID of the person to start from")
+    ],
+    ancestor_id: Annotated[
+        str, Field(description="The ID of the ancestor to search for")
+    ],
+    ctx: Context,
+    max_paths: Annotated[
+        int, Field(description="Maximum number of paths to return (default: 10)")
+    ] = 10,
 ) -> dict:
     """Find all paths from a person to a specific ancestor, following only parent relationships.
 
@@ -1651,7 +1798,19 @@ async def find_all_paths_to_ancestor(
 
 @mcp.tool()
 async def get_persons_batch(
-    person_ids: str, ctx: Context, include_fields: str = "basic"
+    person_ids: Annotated[
+        str,
+        Field(
+            description="Comma-separated list of person IDs (e.g., '@I1@,@I2@,@I3@') or a single person ID"
+        ),
+    ],
+    ctx: Context,
+    include_fields: Annotated[
+        str,
+        Field(
+            description="Fields to include - 'basic', 'extended', 'full', or custom comma-separated list"
+        ),
+    ] = "basic",
 ) -> dict:
     """Get details for one or multiple persons by their IDs. This is the primary tool for retrieving person details.
 
@@ -1766,19 +1925,72 @@ async def get_persons_batch(
 @mcp.tool()
 async def query_people_by_criteria(
     ctx: Context,
-    occupation: str = None,
-    birth_year_range: str = None,
-    death_year_range: str = None,
-    birth_place_contains: str = None,
-    death_place_contains: str = None,
-    name_contains: str = None,
-    gender: str = None,
-    has_children: bool = None,
-    has_parents: bool = None,
-    has_spouses: bool = None,
-    is_living: bool = None,
-    page: int = 1,
-    page_size: int = DEFAULT_PAGE_SIZE,
+    occupation: Annotated[
+        Optional[str],
+        Field(description="Exact match for occupation (e.g., 'farmer', 'teacher')"),
+    ] = None,
+    birth_year_range: Annotated[
+        Optional[str],
+        Field(
+            description="Year range as 'min_year,max_year' or single year (e.g., '1800,1850' or '1800')"
+        ),
+    ] = None,
+    death_year_range: Annotated[
+        Optional[str],
+        Field(
+            description="Year range as 'min_year,max_year' or single year, or 'null' for living people"
+        ),
+    ] = None,
+    birth_place_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in birth place (case insensitive, e.g., 'London')"
+        ),
+    ] = None,
+    death_place_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in death place (case insensitive, e.g., 'Paris')"
+        ),
+    ] = None,
+    name_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in person name (case insensitive, e.g., 'Smith')"
+        ),
+    ] = None,
+    gender: Annotated[
+        Optional[str],
+        Field(description="'M' for male, 'F' for female, or None for any"),
+    ] = None,
+    has_children: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with children, False for childless, None for any"
+        ),
+    ] = None,
+    has_parents: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with known parents, False for orphans, None for any"
+        ),
+    ] = None,
+    has_spouses: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with spouses, False for unmarried, None for any"
+        ),
+    ] = None,
+    is_living: Annotated[
+        Optional[bool],
+        Field(
+            description="True for living people (no death date), False for deceased, None for any"
+        ),
+    ] = None,
+    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
+    page_size: Annotated[
+        int, Field(description="Number of people per page (default 100, max 500)")
+    ] = DEFAULT_PAGE_SIZE,
 ) -> dict:
     """Query people using flexible criteria with pagination
 
@@ -1977,7 +2189,20 @@ async def query_people_by_criteria(
 
 @mcp.tool()
 async def get_all_entity_ids(
-    entity_type: str, ctx: Context, page: int = 1, page_size: int = 100
+    entity_type: Annotated[
+        str,
+        Field(
+            description="The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source')"
+        ),
+    ],
+    ctx: Context,
+    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
+    page_size: Annotated[
+        int,
+        Field(
+            description="Number of IDs per page (default 100, max 1000 for person/family, max 500 for others)"
+        ),
+    ] = 100,
 ) -> dict:
     """Get all IDs for a specific entity type (person, family, place, note, source) with pagination.
 
@@ -2056,13 +2281,25 @@ async def get_all_entity_ids(
 
 @mcp.tool()
 async def find_shortest_relationship_path(
-    person1_id: str,
-    person2_id: str,
+    person1_id: Annotated[str, Field(description="GEDCOM person ID for first person")],
+    person2_id: Annotated[str, Field(description="GEDCOM person ID for second person")],
     ctx: Context,
-    allowed_relationships: str = "default",
-    max_distance: int = 30,
-    exclude_initial_spouse_children: bool = False,
-    min_distance: int = 0,
+    allowed_relationships: Annotated[
+        str,
+        Field(
+            description="Relationship types to include: 'all', 'default', 'blood', 'parents', 'children', or comma-separated list"
+        ),
+    ] = "default",
+    max_distance: Annotated[
+        int, Field(description="Maximum relationship distance to search (default: 30)")
+    ] = 30,
+    exclude_initial_spouse_children: Annotated[
+        bool,
+        Field(description="Whether to exclude spouse/children from initial search"),
+    ] = False,
+    min_distance: Annotated[
+        int, Field(description="Minimum relationship distance (default: 0)")
+    ] = 0,
 ) -> str:
     """Find the shortest relationship path between two people"""
     gedcom_ctx = get_gedcom_context(ctx)
@@ -2170,12 +2407,21 @@ async def find_shortest_relationship_path(
 
 @mcp.tool()
 async def find_all_relationship_paths(
-    person1_id: str,
-    person2_id: str,
+    person1_id: Annotated[str, Field(description="GEDCOM person ID for first person")],
+    person2_id: Annotated[str, Field(description="GEDCOM person ID for second person")],
     ctx: Context,
-    allowed_relationships: str = "all",
-    max_distance: int = 15,
-    max_paths: int = 10,
+    allowed_relationships: Annotated[
+        str,
+        Field(
+            description="Relationship types to include: 'all', 'default', 'blood', or comma-separated list"
+        ),
+    ] = "all",
+    max_distance: Annotated[
+        int, Field(description="Maximum relationship distance to search (default: 15)")
+    ] = 15,
+    max_paths: Annotated[
+        int, Field(description="Maximum number of paths to return (default: 10)")
+    ] = 10,
 ) -> str:
     """Find all relationship paths between two people"""
     gedcom_ctx = get_gedcom_context(ctx)
@@ -2222,7 +2468,16 @@ async def find_all_relationship_paths(
 
 @mcp.tool()
 async def get_common_ancestors(
-    person_ids: str, ctx: Context, max_level: int = 20
+    person_ids: Annotated[
+        str,
+        Field(
+            description="Comma-separated list of person IDs (e.g., '@I1@,@I2@,@I3@')"
+        ),
+    ],
+    ctx: Context,
+    max_level: Annotated[
+        int, Field(description="Maximum ancestor level to search (default: 20)")
+    ] = 20,
 ) -> dict:
     """Find common ancestors for a list of people
 
@@ -2248,14 +2503,26 @@ async def get_common_ancestors(
 
 @mcp.tool()
 async def update_person(
-    person_id: str,
+    person_id: Annotated[
+        str, Field(description="The ID of person to update (e.g., '@I123@')")
+    ],
     ctx: Context,
-    name: str = None,
-    gender: str = None,
-    birth_date: str = None,
-    birth_place: str = None,
-    death_date: str = None,
-    death_place: str = None,
+    name: Annotated[Optional[str], Field(description="The new full name")] = None,
+    gender: Annotated[
+        Optional[str], Field(description="The new gender ('M' or 'F')")
+    ] = None,
+    birth_date: Annotated[
+        Optional[str], Field(description="The new birth date")
+    ] = None,
+    birth_place: Annotated[
+        Optional[str], Field(description="The new birth place")
+    ] = None,
+    death_date: Annotated[
+        Optional[str], Field(description="The new death date")
+    ] = None,
+    death_place: Annotated[
+        Optional[str], Field(description="The new death place")
+    ] = None,
 ) -> str:
     """Updates the details for an existing person.
 
@@ -2310,7 +2577,10 @@ async def update_person(
 
 
 @mcp.tool()
-async def find_person_families(person_id: str, ctx: Context) -> dict:
+async def find_person_families(
+    person_id: Annotated[str, Field(description="The ID of person to look up")],
+    ctx: Context,
+) -> dict:
     """Finds the families a person is associated with (as a spouse or child).
 
     Args:
@@ -2342,7 +2612,13 @@ async def find_person_families(person_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def remove_child_from_family(child_id: str, family_id: str, ctx: Context) -> dict:
+async def remove_child_from_family(
+    child_id: Annotated[str, Field(description="The ID of child")],
+    family_id: Annotated[
+        str, Field(description="The ID of family from which to remove child")
+    ],
+    ctx: Context,
+) -> dict:
     """Removes the link between a child and their family.
 
     Args:
@@ -2392,7 +2668,11 @@ async def remove_child_from_family(child_id: str, family_id: str, ctx: Context) 
 
 @mcp.tool()
 async def remove_parent_from_family(
-    parent_id: str, family_id: str, ctx: Context
+    parent_id: Annotated[str, Field(description="The ID of parent")],
+    family_id: Annotated[
+        str, Field(description="The ID of family from which to remove parent")
+    ],
+    ctx: Context,
 ) -> str:
     """Removes the link between a parent and their family.
 
@@ -2423,7 +2703,12 @@ async def remove_parent_from_family(
 
 
 @mcp.tool()
-async def dissolve_marriage(family_id: str, ctx: Context) -> dict:
+async def dissolve_marriage(
+    family_id: Annotated[
+        str, Field(description="The ID of family where marriage exists")
+    ],
+    ctx: Context,
+) -> dict:
     """Dissolves a marriage by removing the spouse links from a family.
 
     This does not delete the family record itself, in case children are attached.
@@ -2485,7 +2770,10 @@ async def dissolve_marriage(family_id: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def delete_person(person_id: str, ctx: Context) -> str:
+async def delete_person(
+    person_id: Annotated[str, Field(description="The ID of person to delete")],
+    ctx: Context,
+) -> str:
     """Deletes a person and removes them from all family relationships.
 
     This is a destructive operation. It will remove the person and update
@@ -2530,12 +2818,22 @@ async def delete_person(person_id: str, ctx: Context) -> str:
 
 @mcp.tool()
 async def update_event_details(
-    entity_id: str,
-    event_type: str,
+    entity_id: Annotated[str, Field(description="The ID of person or family")],
+    event_type: Annotated[
+        str,
+        Field(description="The type of event to update (e.g., 'BIRT', 'MARR', 'RESI')"),
+    ],
     ctx: Context,
-    new_date: str = None,
-    new_place: str = None,
-    old_date_to_match: str = None,
+    new_date: Annotated[
+        Optional[str], Field(description="The new date for event")
+    ] = None,
+    new_place: Annotated[
+        Optional[str], Field(description="The new place for event")
+    ] = None,
+    old_date_to_match: Annotated[
+        Optional[str],
+        Field(description="Required if there could be multiple events of same type"),
+    ] = None,
 ) -> str:
     """Updates the date and/or place for an event associated with a person or family.
 
@@ -2574,7 +2872,16 @@ async def update_event_details(
 
 @mcp.tool()
 async def remove_event(
-    entity_id: str, event_type: str, ctx: Context, date_to_match: str = None
+    entity_id: Annotated[str, Field(description="The ID of person or family")],
+    event_type: Annotated[
+        str,
+        Field(description="The type of event to remove (e.g., 'BIRT', 'MARR', 'RESI')"),
+    ],
+    ctx: Context,
+    date_to_match: Annotated[
+        Optional[str],
+        Field(description="Optional date to match for identifying specific event"),
+    ] = None,
 ) -> str:
     """Removes an event from a person or family.
 
@@ -2624,7 +2931,15 @@ async def get_person_attributes(person_id: str, ctx: Context) -> dict:
 
 @mcp.tool()
 async def update_person_attribute(
-    person_id: str, attribute_tag: str, new_value: str, ctx: Context
+    person_id: Annotated[str, Field(description="The ID of person")],
+    attribute_tag: Annotated[
+        str,
+        Field(
+            description="The tag of attribute to update (e.g., 'OCCU' for occupation)"
+        ),
+    ],
+    new_value: Annotated[str, Field(description="The new value for attribute")],
+    ctx: Context,
 ) -> str:
     """Updates a person's attribute.
     Args:
@@ -2652,7 +2967,12 @@ async def update_person_attribute(
 
 
 @mcp.tool()
-async def batch_update_person_attributes(updates: str, ctx: Context) -> dict:
+async def batch_update_person_attributes(
+    updates: Annotated[
+        str, Field(description="JSON string containing an array of update objects")
+    ],
+    ctx: Context,
+) -> dict:
     """Update multiple person attributes in a single operation.
 
     Args:
@@ -2704,7 +3024,20 @@ async def batch_update_person_attributes(updates: str, ctx: Context) -> dict:
 
 @mcp.tool()
 async def remove_person_attribute(
-    person_id: str, attribute_type: str, ctx: Context, value_to_match: str
+    person_id: Annotated[str, Field(description="The ID of person")],
+    attribute_type: Annotated[
+        str,
+        Field(
+            description="The type of attribute (GEDCOM tag or human name, e.g., 'OCCU' or 'Occupation')"
+        ),
+    ],
+    ctx: Context,
+    value_to_match: Annotated[
+        str,
+        Field(
+            description="The exact value of attribute to remove, for precise identification"
+        ),
+    ],
 ) -> str:
     """Removes a specific attribute from a person.
 
@@ -2740,7 +3073,12 @@ async def remove_person_attribute(
 
 @mcp.tool()
 async def create_source(
-    title: str, ctx: Context, author: str = "", publication: str = ""
+    title: Annotated[str, Field(description="The title of source")],
+    ctx: Context,
+    author: Annotated[str, Field(description="The author of source (optional)")] = "",
+    publication: Annotated[
+        str, Field(description="Publication information (optional)")
+    ] = "",
 ) -> str:
     """Creates a new source with a unique ID.
 
@@ -2766,7 +3104,11 @@ async def create_source(
 
 @mcp.tool()
 async def add_note_to_entity(
-    entity_id: str, ctx: Context, note_text: str = None
+    entity_id: Annotated[
+        str, Field(description="The ID of person or family to add note to")
+    ],
+    ctx: Context,
+    note_text: Annotated[Optional[str], Field(description="The full text of note")],
 ) -> str:
     """Adds a new note to a person or family. Creates note references, not inline notes.
 
@@ -2792,7 +3134,12 @@ async def add_note_to_entity(
 
 
 @mcp.tool()
-async def delete_note_entity(note_id: str, ctx: Context) -> str:
+async def delete_note_entity(
+    note_id: Annotated[
+        str, Field(description="The ID of note to delete (e.g., '@N123@')")
+    ],
+    ctx: Context,
+) -> str:
     """Deletes a note entity by its ID and removes all references to it.
 
     Args:
@@ -2847,7 +3194,18 @@ async def delete_note_entity(note_id: str, ctx: Context) -> str:
 
 @mcp.tool()
 async def delete_note_from_entity(
-    entity_id: str, ctx: Context, note_starts_with: str = None, note_id: str = None
+    entity_id: Annotated[str, Field(description="The ID of person or family")],
+    ctx: Context,
+    note_starts_with: Annotated[
+        Optional[str],
+        Field(description="The first few words of an inline note to identify it"),
+    ] = None,
+    note_id: Annotated[
+        Optional[str],
+        Field(
+            description="The ID of a note entity to remove reference to (e.g., '@N123@')"
+        ),
+    ] = None,
 ) -> str:
     """Deletes a note from a person or family.
 
@@ -2935,7 +3293,15 @@ async def new_empty_gedcom(ctx: Context) -> str:
 
 
 @mcp.tool()
-async def save_gedcom(ctx: Context, file_path: Optional[str] = None) -> str:
+async def save_gedcom(
+    ctx: Context,
+    file_path: Annotated[
+        Optional[str],
+        Field(
+            description="The path to save file to. If not provided, it will overwrite the original file"
+        ),
+    ] = None,
+) -> str:
     """Saves the in-memory GEDCOM data back to a file.
 
     Args:
@@ -3331,7 +3697,13 @@ if DATE_UTILS_AVAILABLE:
 
     @mcp.tool()
     async def validate_dates(
-        ctx: Context, birth_date: str = None, death_date: str = None
+        ctx: Context,
+        birth_date: Annotated[
+            Optional[str], Field(description="Birth date string to validate")
+        ] = None,
+        death_date: Annotated[
+            Optional[str], Field(description="Death date string to validate")
+        ] = None,
     ) -> str:
         """Validate that birth and death dates are consistent.
 
@@ -3357,7 +3729,10 @@ if DATE_UTILS_AVAILABLE:
             return f"Error validating dates: {e}"
 
     @mcp.tool()
-    async def get_date_certainty(ctx: Context, date_string: str) -> str:
+    async def get_date_certainty(
+        ctx: Context,
+        date_string: Annotated[str, Field(description="The date string to analyze")],
+    ) -> str:
         """Get a textual description of the certainty level of a date.
 
         Args:
@@ -3377,7 +3752,10 @@ if DATE_UTILS_AVAILABLE:
 if NAME_UTILS_AVAILABLE:
 
     @mcp.tool()
-    async def normalize_name(ctx: Context, name_string: str) -> str:
+    async def normalize_name(
+        ctx: Context,
+        name_string: Annotated[str, Field(description="The name string to normalize")],
+    ) -> str:
         """Normalize a name for comparison purposes.
 
         Args:
@@ -3393,7 +3771,12 @@ if NAME_UTILS_AVAILABLE:
             return f"Error normalizing name: {e}"
 
     @mcp.tool()
-    async def find_name_variants(ctx: Context, name_string: str) -> str:
+    async def find_name_variants(
+        ctx: Context,
+        name_string: Annotated[
+            str, Field(description="The name string to find variants for")
+        ],
+    ) -> str:
         """Find common variants of a name.
 
         Args:
@@ -3413,7 +3796,12 @@ if NAME_UTILS_AVAILABLE:
 if PLACE_UTILS_AVAILABLE:
 
     @mcp.tool()
-    async def normalize_place_name(ctx: Context, place_string: str) -> str:
+    async def normalize_place_name(
+        ctx: Context,
+        place_string: Annotated[
+            str, Field(description="The place string to normalize")
+        ],
+    ) -> str:
         """Normalize a place name.
 
         Args:
@@ -3441,7 +3829,10 @@ if PLACE_UTILS_AVAILABLE:
             return f"Error normalizing place name: {e}"
 
     @mcp.tool()
-    async def extract_geographic_hierarchy(ctx: Context, place_string: str) -> str:
+    async def extract_geographic_hierarchy(
+        ctx: Context,
+        place_string: Annotated[str, Field(description="The place string to parse")],
+    ) -> str:
         """Extract geographic hierarchy from a place string.
 
         Args:
