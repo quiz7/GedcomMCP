@@ -7,7 +7,7 @@
       "gedcom_mcp" : {
       "description": "A tool for creating, editing, and querying genealogical data from GEDCOM files.",
       "command": "python",
-      "args" : [ "$HOME/Sources/airy/github/GedcomMCP-bak/src/gedcom_mcp/fastmcp_server.py", "--transport", "stdio" ]
+      "args" : [ "$HOME/Developer/GedcomMCP/src/gedcom_mcp/fastmcp_server.py", "--transport", "stdio" ]
     }
 }
 }
