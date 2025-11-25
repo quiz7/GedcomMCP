@@ -189,7 +189,7 @@ def create_error_response(
 ) -> dict:
     """Create a standardized error response dictionary.
 
-    Args:
+    Parameters:
         message: Error message describing what went wrong
         suggestion: Optional recovery suggestion for the user
         error_code: Optional error code for programmatic handling
@@ -1504,7 +1504,7 @@ async def update_configuration(
 ) -> dict:
     """Update configuration settings.
 
-    Args:
+    Parameters:
         config_updates: JSON string with configuration updates. Valid keys include:
                         - fuzzy_threshold: Similarity threshold for fuzzy search (0-100, default: 80)
                         - max_results: Maximum results for fuzzy search (default: 50)
@@ -1679,7 +1679,7 @@ async def find_all_paths_to_ancestor(
 ) -> dict:
     """Find all paths from a person to a specific ancestor, following only parent relationships.
 
-    Args:
+    Parameters:
         start_person_id: The ID of the person to start from
         ancestor_id: The ID of the ancestor to search for
         max_paths: Maximum number of paths to return (default: 10)
