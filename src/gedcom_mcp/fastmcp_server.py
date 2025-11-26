@@ -793,44 +793,6 @@ async def get_statistics(ctx: Context) -> dict:
             "recovery_suggestion": "Try reloading the GEDCOM file or contact support",
         }
 
-
-@mcp.tool()
-async def get_person_attributes(
-    person_id: Annotated[
-        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
-    ],
-    ctx: Context,
-) -> dict:
-    """Get all attributes for a person.
-
-    Returns:
-        List of all attributes associated with the person
-
-    Examples:
-        get_person_attributes("@I1@")
-    """
-    gedcom_ctx = get_gedcom_context(ctx)
-    if not gedcom_ctx.gedcom_parser:
-        return {
-            "status": "error",
-            "message": "No family tree file is currently loaded",
-            "recovery_suggestion": "Use the load_gedcom tool to open a GEDCOM file first",
-        }
-
-    try:
-        attributes = _get_person_attributes_internal(gedcom_ctx, person_id)
-        return {
-            "status": "success",
-            "message": f"Found {len(attributes)} attributes for person {person_id}",
-            "data": attributes,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to get attributes for person {person_id}: {str(e)}",
-        }
-
-
 @mcp.tool()
 async def find_person(
     name: Annotated[
@@ -2126,7 +2088,7 @@ async def get_all_entity_ids(
 ) -> dict:
     """Get all IDs for a specific entity type (person, family, place, note, source) with pagination.
 
-    Args:
+    Parameters:
         entity_type: The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source').
         page: Page number (starting from 1).
         page_size: Number of IDs per page (default 100, max 1000 for person/family, max 500 for others).
@@ -2407,7 +2369,7 @@ async def get_common_ancestors(
 ) -> dict:
     """Find common ancestors for a list of people
 
-    Args:
+    Parameters:
         person_ids: Comma-separated list of person IDs (e.g., "@I1@,@I2@,@I3@")
         max_level: Maximum ancestor level to search (default: 20)
 
@@ -2826,24 +2788,40 @@ async def remove_event(
 
 
 @mcp.tool()
-async def get_person_attributes(person_id: str, ctx: Context) -> dict:
-    """Retrieves all attributes for a person.
-    Args:
-        person_id (str): The ID of the person.
-    Returns:
-        dict: A dictionary of attributes.
-    """
-    try:
-        gedcom_ctx = get_gedcom_context(ctx)
-        attributes = _get_person_attributes_internal(person_id, gedcom_ctx)
-        if attributes:
-            return {"attributes": attributes}
-        return create_error_response(
-            f"Person with ID {person_id} not found or has no attributes."
-        )
-    except Exception as e:
-        return create_error_response(f"Error retrieving attributes: {e}")
+async def get_person_attributes(
+    person_id: Annotated[
+        str, Field(description="GEDCOM person ID (e.g., '@I1@', '@I123@')")
+    ],
+    ctx: Context,
+) -> dict:
+    """Get all attributes for a person.
 
+    Returns:
+        List of all attributes associated with the person
+
+    Examples:
+        get_person_attributes("@I1@")
+    """
+    gedcom_ctx = get_gedcom_context(ctx)
+    if not gedcom_ctx.gedcom_parser:
+        return {
+            "status": "error",
+            "message": "No family tree file is currently loaded",
+            "recovery_suggestion": "Use the load_gedcom tool to open a GEDCOM file first",
+        }
+
+    try:
+        attributes = _get_person_attributes_internal(gedcom_ctx, person_id)
+        return {
+            "status": "success",
+            "message": f"Found {len(attributes)} attributes for person {person_id}",
+            "data": attributes,
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to get attributes for person {person_id}: {str(e)}",
+        }
 
 @mcp.tool()
 async def update_person_attribute(
@@ -3764,79 +3742,218 @@ def gedcom_help() -> str:
 
 ## Basic Tools:
 - **load_gedcom**(file_path) - Load a GEDCOM file (returns structured data with statistics)
-- **find_person**(name) - Search for people by name
+  - Parameters: file_path (string) - Path to GEDCOM file to load
+- **find_person**(name) - Search for people by name (most basic search tool)
+  - Parameters: name (string) - Name to search for (partial matches supported)
+- **query_people_by_criteria**(occupation, birth_year_range, death_year_range, birth_place_contains, death_place_contains, name_contains, gender, has_children, has_parents, has_spouses, is_living, page, page_size) - Flexible people search with multiple criteria (most practical for research)
+  - Parameters:
+    - occupation (string, optional) - Exact match for occupation (e.g., 'farmer', 'teacher')
+    - birth_year_range (string, optional) - Year range as 'min_year,max_year' or single year
+    - death_year_range (string, optional) - Year range, single year, or 'null' for living people
+    - birth_place_contains (string, optional) - Substring match in birth place (case insensitive)
+    - death_place_contains (string, optional) - Substring match in death place (case insensitive)
+    - name_contains (string, optional) - Substring match in person name (case insensitive)
+    - gender (string, optional) - 'M' for male, 'F' for female, or None for any
+    - has_children (boolean, optional) - True for people with children, False for childless, None for any
+    - has_parents (boolean, optional) - True for people with known parents, False for orphans, None for any
+    - has_spouses (boolean, optional) - True for people with spouses, False for unmarried, None for any
+    - is_living (boolean, optional) - True for living people (no death date), False for deceased, None for any
+    - page (integer) - Page number (starting from 1)
+    - page_size (integer) - Number of people per page (default 100, max 500)
 - **get_person_details**(person_id) - Get detailed person information (now includes occupation)
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 - **get_persons_batch**(person_ids, include_fields) - Get details for multiple people at once
+  - Parameters: 
+    - person_ids (string) - Comma-separated list of person IDs or single ID
+    - include_fields (string) - Fields to include: 'basic', 'extended', 'full', or custom list
 - **get_occupation**(person_id) - Get a person's occupation
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 - **get_relationships**(person_id) - Get family relationships
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 - **new_empty_gedcom**() - Create a new empty GEDCOM context
 - **add_person**(name, gender) - Add a new person to the GEDCOM data
+  - Parameters:
+    - name (string) - Full name of the person (e.g., 'John Smith', 'Mary Johnson')
+    - gender (string) - Gender of the person ('M' for male, 'F' for female)
 - **create_marriage**(husband_id, wife_id) - Create a marriage between two people
+  - Parameters:
+    - husband_id (string) - GEDCOM person ID for the husband
+    - wife_id (string) - GEDCOM person ID for the wife
 - **add_child_to_family**(child_id, family_id) - Add a child to a family
+  - Parameters:
+    - child_id (string) - GEDCOM person ID for the child
+    - family_id (string) - GEDCOM family ID (e.g., '@F1@', '@F123@')
 - **create_source**(title, author, publication) - Create a new source with a unique ID
+  - Parameters:
+    - title (string) - Title of the source
+    - author (string) - Author of the source
+    - publication (string) - Publication information
 
 ## Event & Information Tools:
 - **get_events**(person_id) - Get comprehensive events with full details
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 - **get_notes**(entity_id) - Get all notes with full text for a person or family
+  - Parameters: entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
 - **get_note_by_id**(note_id) - Get the full text content of a specific note (e.g., @N176@)
+  - Parameters: note_id (string) - GEDCOM note ID (e.g., '@N1@', '@N123@')
 - **get_sources**(entity_id) - Get all sources for a person or family
+  - Parameters: entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
 - **get_timeline**(person_id) - Generate chronological timeline
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 
 ## Analysis Tools:
 - **gedcom_search**(query, search_type) - Search across people, places, events, families
+  - Parameters:
+    - query (string) - The search term to look for
+    - search_type (string) - Type of search: 'all', 'people', 'places', 'events', 'families'
 - **get_statistics**() - Get comprehensive GEDCOM file statistics
 - **get_attribute_statistics**(attribute_type) - Get statistics for a specific GEDCOM attribute (e.g., OCCU, RELI)
+  - Parameters: attribute_type (string) - GEDCOM attribute tag or human-readable name
 - **get_places**(query) - Get information about places
+  - Parameters: query (string, optional) - Search term to filter places (case insensitive)
 - **get_surname_statistics**(surname) - Analyze surname frequency and distribution
+  - Parameters: surname (string, optional) - Optional surname to filter statistics for
 - **get_date_range_analysis**() - Analyze time periods and generations covered
 - **find_potential_duplicates**() - Find possible duplicate person records
 
 - **validate_dates**(birth_date, death_date) - Validate consistency between birth and death dates
+  - Parameters:
+    - birth_date (string) - Birth date to validate
+    - death_date (string) - Death date to validate
 - **get_date_certainty**(date_string) - Get certainty level description for a date
+  - Parameters: date_string (string) - Date string to analyze
 
 - **normalize_name**(name_string) - Normalize a name for comparison purposes
+  - Parameters: name_string (string) - Name to normalize
 - **find_name_variants**(name_string) - Find common variants of a name
+  - Parameters: name_string (string) - Name to find variants for
 - **normalize_place_name**(place_string) - Normalize place names
+  - Parameters: place_string (string) - Place name to normalize
 
 - **extract_geographic_hierarchy**(place_string) - Extract geographic hierarchy from place strings
+  - Parameters: place_string (string) - Place string to analyze
 
 ## Bulk Data Tools:
 - **get_all_entity_ids**(entity_type, page, page_size) - Get all entity IDs (person, family, place, note, source) with pagination
-
-
-- **get_all_entity_ids**(entity_type, page, page_size) - Get all entity IDs (person, family, place, note, source) with pagination
-- **query_people_by_criteria**(filters, page, page_size) - Flexible people search with multiple criteria
+  - Parameters:
+    - entity_type (string) - Type of entity: 'person', 'family', 'place', 'note', 'source'
+    - page (integer) - Page number (starting from 1)
+    - page_size (integer) - Number of entries per page (default 100, max 500)
 
 ## Genealogy Tools:
-- **get_ancestors**(person_id, generations) - Get ancestors tree with full details
-- **get_descendants**(person_id, generations) - Get descendants tree with full details
+- **get_ancestors**(person_id, generations, format, page, page_size) - Get ancestors tree with full details
+  - Parameters:
+    - person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+    - generations (integer) - Number of generations to retrieve (default: 3)
+    - format (string) - Output format: 'nested' for tree structure, 'flat' for list with levels
+    - page (integer) - Page number for 'flat' format (starting from 1)
+    - page_size (integer) - Entries per page for 'flat' format (default 100, max 500)
+- **get_descendants**(person_id, generations, format, page, page_size) - Get descendants tree with full details
+  - Parameters:
+    - person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+    - generations (integer) - Number of generations to retrieve (default: 3)
+    - format (string) - Output format: 'nested' for tree structure, 'flat' for list with levels
+    - page (integer) - Page number for 'flat' format (starting from 1)
+    - page_size (integer) - Entries per page for 'flat' format (default 100, max 500)
 - **get_family_tree_summary**(person_id) - Concise family overview with parents, spouse, children
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
 - **find_shortest_relationship_path**(person1_id, person2_id, allowed_relationships, max_distance, exclude_initial_spouse_children, min_distance) - Find shortest path between two people (max distance: 30)
+  - Parameters:
+    - person1_id (string) - GEDCOM person ID for the first person
+    - person2_id (string) - GEDCOM person ID for the second person
+    - allowed_relationships (string, optional) - Comma-separated list of allowed relationship types
+    - max_distance (integer) - Maximum relationship distance to search (default: 30)
+    - exclude_initial_spouse_children (boolean) - Whether to exclude initial spouse/children relationships
+    - min_distance (integer) - Minimum relationship distance (default: 1)
 - **get_common_ancestors**(person_ids, max_level) - Find common ancestors for multiple people (comma-separated IDs, max level: 20)
+  - Parameters:
+    - person_ids (string) - Comma-separated list of GEDCOM person IDs
+    - max_level (integer) - Maximum ancestor level to search (default: 20)
 
 - **find_all_relationship_paths**(person1_id, person2_id, allowed_relationships, max_distance, max_paths) - Find all relationship paths between two people
+  - Parameters:
+    - person1_id (string) - GEDCOM person ID for the first person
+    - person2_id (string) - GEDCOM person ID for the second person
+    - allowed_relationships (string, optional) - Comma-separated list of allowed relationship types
+    - max_distance (integer) - Maximum relationship distance to search (default: 30)
+    - max_paths (integer) - Maximum number of paths to return (default: 10)
 - **find_all_paths_to_ancestor**(start_person_id, ancestor_id, max_paths) - Find all paths from a person to a specific ancestor (parent links only)
+  - Parameters:
+    - start_person_id (string) - GEDCOM person ID to start from
+    - ancestor_id (string) - GEDCOM person ID of the ancestor to search for
+    - max_paths (integer) - Maximum number of paths to return (default: 10)
 
 ## Enhanced Search Tools:
 - **fuzzy_search_person**(name, threshold, max_results) - Search for persons with fuzzy name matching
+  - Parameters:
+    - name (string) - Search term to match against person names
+    - threshold (integer) - Minimum similarity score (0-100, default: 80)
+    - max_results (integer) - Maximum number of results to return (default: 50)
 
 ## Data Management Tools:
-- **update_person**(person_id, name, gender, birth_date, birth_place, death_date, death_place) - Updates the details for an existing person
-- **find_person_families**(person_id) - Finds the families a person is associated with (as a spouse or child)
-- **remove_child_from_family**(child_id, family_id) - Removes the link between a child and their family
-- **remove_parent_from_family**(parent_id, family_id) - Removes the link between a parent and their family
-- **dissolve_marriage**(family_id) - Dissolves a marriage by removing the spouse links from a family
+- **update_person**(person_id, name, gender, birth_date, birth_place, death_date, death_place) - Updates details for an existing person
+  - Parameters:
+    - person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+    - name (string, optional) - New full name for the person
+    - gender (string, optional) - New gender ('M' for male, 'F' for female)
+    - birth_date (string, optional) - New birth date
+    - birth_place (string, optional) - New birth place
+    - death_date (string, optional) - New death date
+    - death_place (string, optional) - New death place
+- **find_person_families**(person_id) - Finds families a person is associated with (as a spouse or child)
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+- **remove_child_from_family**(child_id, family_id) - Removes link between a child and their family
+  - Parameters:
+    - child_id (string) - GEDCOM person ID for the child
+    - family_id (string) - GEDCOM family ID (e.g., '@F1@', '@F123@')
+- **remove_parent_from_family**(parent_id, family_id) - Removes link between a parent and their family
+  - Parameters:
+    - parent_id (string) - GEDCOM person ID for the parent
+    - family_id (string) - GEDCOM family ID (e.g., '@F1@', '@F123@')
+- **dissolve_marriage**(family_id) - Dissolves a marriage by removing spouse links from a family
+  - Parameters: family_id (string) - GEDCOM family ID (e.g., '@F1@', '@F123@')
 - **delete_person**(person_id) - Deletes a person and removes them from all family relationships
-- **update_event_details**(entity_id, event_type, new_date, new_place, old_date_to_match) - Updates the date and/or place for an event associated with a person or family
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+- **update_event_details**(entity_id, event_type, new_date, new_place, old_date_to_match) - Updates date and/or place for an event associated with a person or family
+  - Parameters:
+    - entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
+    - event_type (string) - Type of event to update (e.g., 'BIRT', 'DEAT', 'MARR')
+    - new_date (string, optional) - New date for the event
+    - new_place (string, optional) - New place for the event
+    - old_date_to_match (string, optional) - Old date to match for identification
 - **remove_event**(entity_id, event_type, date_to_match) - Removes an event from a person or family
+  - Parameters:
+    - entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
+    - event_type (string) - Type of event to remove (e.g., 'BIRT', 'DEAT', 'MARR')
+    - date_to_match (string, optional) - Date to match for identification
 - **get_person_attributes**(person_id) - Returns a list of all attributes for a person
-- **update_person_attribute**(person_id, attribute_type, new_value, old_value_to_match) - Updates the value of a person's attribute
+  - Parameters: person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+- **update_person_attribute**(person_id, attribute_type, new_value, old_value_to_match) - Updates value of a person's attribute
+  - Parameters:
+    - person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+    - attribute_type (string) - GEDCOM attribute tag (e.g., 'OCCU', 'RELI')
+    - new_value (string) - New value for the attribute
+    - old_value_to_match (string, optional) - Old value to match for identification
 - **remove_person_attribute**(person_id, attribute_type, value_to_match) - Removes a specific attribute from a person
+  - Parameters:
+    - person_id (string) - GEDCOM person ID (e.g., '@I1@', '@I123@')
+    - attribute_type (string) - GEDCOM attribute tag (e.g., 'OCCU', 'RELI')
+    - value_to_match (string, optional) - Value to match for identification
 - **batch_update_person_attributes**(updates) - Update multiple person attributes in a single operation
+  - Parameters: updates (string) - JSON string with batch update operations
 - **add_note_to_entity**(entity_id, note_text) - Adds a new note to a person or family. Create references to note entities. A new note is created
+  - Parameters:
+    - entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
+    - note_text (string) - Text content of the note to add
 - **delete_note_from_entity**(entity_id, note_starts_with, note_id) - Deletes an inline note from a person or family, or removes a reference to a note entity
+  - Parameters:
+    - entity_id (string) - GEDCOM entity ID (person '@I1@' or family '@F1@')
+    - note_starts_with (string, optional) - Text that the note starts with (for identification)
+    - note_id (string, optional) - GEDCOM note ID (e.g., '@N1@', '@N123@')
 - **delete_note_entity**(note_id) - Deletes a note entity by its ID and removes all references to it
-- **save_gedcom**(file_path) - Saves the in-memory GEDCOM data back to a file
+  - Parameters: note_id (string) - GEDCOM note ID (e.g., '@N1@', '@N123@')
+- **save_gedcom**(file_path) - Saves in-memory GEDCOM data back to a file
+  - Parameters: file_path (string) - Path where to save the GEDCOM file
 
 ## Enhanced Features:
 - **Comprehensive event decoding**: Birth, Death, Marriage, Baptism, Education, Occupation, etc.
@@ -3850,9 +3967,16 @@ def gedcom_help() -> str:
 
 ### Basic exploration:
 1. load_gedcom(file_path="family.ged")
-2. get_statistics() - Overview of the file
-3. search(query="Smith", search_type="people")
-4. get_person_details(person_id="@I123@")
+2. get_statistics() - Overview of file
+3. find_person(name="Smith") - Find people by name (most basic search)
+4. query_people_by_criteria(occupation="farmer") - Find all farmers in the database
+5. get_person_details(person_id="@I123@") - Get full details for a specific person
+
+### Practical research examples:
+1. query_people_by_criteria(death_year_range="1855") - Find everyone who died in 1855
+2. query_people_by_criteria(birth_place_contains="London", occupation="merchant") - Find merchants born in London
+3. query_people_by_criteria(gender="F", has_children=True) - Find women who had children
+4. query_people_by_criteria(is_living=True) - Find all living people
 
 ### Deep genealogy research:
 1. get_ancestors(person_id="@I123@", generations=4)
@@ -3861,8 +3985,8 @@ def gedcom_help() -> str:
 4. get_sources(entity_id="@I123@") - Documentation
 
 ### Place and event research:
-1. search(query="London", search_type="places")
-2. search(query="marriage", search_type="events")
+1. gedcom_search(query="London", search_type="places")
+2. query_people_by_criteria(birth_place_contains="London") - Find people born in London
 3. get_places(query="England")"""
 
 
