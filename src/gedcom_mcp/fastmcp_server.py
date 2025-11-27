@@ -47,7 +47,6 @@ except ImportError:
 try:
     from .gedcom_date_utils import (
         parse_genealogy_date,
-        validate_date_consistency,
         get_date_certainty_level,
         GenealogyDate,
     )
@@ -418,10 +417,6 @@ async def load_gedcom(
 
     Returns:
         Structured data with file statistics and loading confirmation
-
-    Examples:
-        load_gedcom("family.ged")
-        load_gedcom("/path/to/my/family_tree.ged")
     """
     # Validate file path
     if not file_path:
@@ -527,6 +522,310 @@ async def load_gedcom(
             "recovery_suggestion": "Check file format and try again, or contact support if issue persists",
         }
 
+@mcp.tool()
+async def find_person(
+    name: Annotated[
+        str, Field(description="Name to search for (partial matches supported)")
+    ],
+    ctx: Context,
+) -> dict:
+    """Search for persons by name.
+
+    Returns:
+        Dictionary with search results containing count and person details.
+
+    Examples:
+        find_person("John")
+        find_person("Smith")
+    """
+    if not name:
+        return {
+            "status": "error",
+            "message": "Search name is required",
+            "recovery_suggestion": "Provide a name to search for",
+        }
+
+    gedcom_ctx = get_gedcom_context(ctx)
+    if not gedcom_ctx.gedcom_parser:
+        return {
+            "status": "error",
+            "message": "No family tree file is currently loaded",
+            "recovery_suggestion": "Use the load_gedcom tool to open a GEDCOM file first",
+        }
+
+    persons = find_person_by_name(name, gedcom_ctx)
+    if persons:
+        return {
+            "status": "success",
+            "message": f"Found {len(persons)} persons matching '{name}'",
+            "data": {
+                "persons": [person.model_dump() for person in persons],
+                "count": len(persons),
+            },
+        }
+    else:
+        return {
+            "status": "success",
+            "message": f"No persons found matching '{name}'",
+            "data": {"persons": [], "count": 0},
+        }
+
+
+@mcp.tool()
+async def query_people_by_criteria(
+    ctx: Context,
+    occupation: Annotated[
+        Optional[str],
+        Field(description="Exact match for occupation (e.g., 'farmer', 'teacher')"),
+    ] = None,
+    birth_year_range: Annotated[
+        Optional[str],
+        Field(
+            description="Year range as 'min_year,max_year' or single year (e.g., '1800,1850' or '1800')"
+        ),
+    ] = None,
+    death_year_range: Annotated[
+        Optional[str],
+        Field(
+            description="Year range as 'min_year,max_year' or 'min_year-max_year' or single year, or 'null' for living people"
+        ),
+    ] = None,
+    birth_place_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in birth place (case insensitive, e.g., 'London')"
+        ),
+    ] = None,
+    death_place_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in death place (case insensitive, e.g., 'Paris')"
+        ),
+    ] = None,
+    name_contains: Annotated[
+        Optional[str],
+        Field(
+            description="Substring match in person name (case insensitive, e.g., 'Smith')"
+        ),
+    ] = None,
+    gender: Annotated[
+        Optional[str],
+        Field(description="'M' for male, 'F' for female, or None for any"),
+    ] = None,
+    has_children: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with children, False for childless, None for any"
+        ),
+    ] = None,
+    has_parents: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with known parents, False for orphans, None for any"
+        ),
+    ] = None,
+    has_spouses: Annotated[
+        Optional[bool],
+        Field(
+            description="True for people with spouses, False for unmarried, None for any"
+        ),
+    ] = None,
+    is_living: Annotated[
+        Optional[bool],
+        Field(
+            description="True for living people (no death date), False for deceased, None for any"
+        ),
+    ] = None,
+    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
+    page_size: Annotated[
+        int, Field(description="Number of people per page (default 100, max 500)")
+    ] = DEFAULT_PAGE_SIZE,
+) -> dict:
+    """Query people using flexible criteria with pagination
+
+    Returns:
+        Dictionary with search results and pagination information.
+    """
+    gedcom_ctx = get_gedcom_context(ctx)
+    if not gedcom_ctx.gedcom_parser:
+        return create_error_response(
+            "No family tree file is currently loaded",
+            "Use the load_gedcom tool to open a GEDCOM file first",
+        )
+
+    # Validate parameters
+    if page < 1:
+        return create_error_response("Page number must be 1 or greater")
+    if page_size < 1 or page_size > MAX_PAGE_SIZE_OTHERS:
+        return create_error_response(
+            f"Page size must be between 1 and {MAX_PAGE_SIZE_OTHERS}"
+        )
+
+    try:
+        # Build filter criteria from individual parameters
+        filter_criteria = {}
+
+        # Handle occupation filter
+        if occupation is not None:
+            filter_criteria["occupation"] = occupation
+
+        # Handle birth_year_range filter
+        if birth_year_range is not None:
+            if "," in birth_year_range or "-" in birth_year_range:
+                # Range format: "min_year,max_year" or "min_year-max_year"
+                parts = birth_year_range.split(",")
+                if len(parts) != 2:
+                    parts = birth_year_range.split("-")
+
+                if len(parts) == 2:
+                    try:
+                        min_year = int(parts[0].strip())
+                        max_year = int(parts[1].strip())
+                        filter_criteria["birth_year_range"] = [min_year, max_year]
+                    except ValueError:
+                        return create_error_response(
+                            f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or 'min_year-max_year' or single year"
+                        )
+                else:
+                    return create_error_response(
+                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or 'min_year-max_year' or single year"
+                    )
+            else:
+                # Single year format
+                try:
+                    year = int(birth_year_range.strip())
+                    filter_criteria["birth_year_range"] = [year, year]
+                except ValueError:
+                    return create_error_response(
+                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or 'min_year-max_year' or single year"
+                    )
+
+        # Handle death_year_range filter
+        if death_year_range is not None:
+            if death_year_range.lower() == "null":
+                # Special case: null means living people (no death date)
+                filter_criteria["death_year_range"] = None
+            elif "," in death_year_range:
+                # Range format: "min_year,max_year"
+                parts = death_year_range.split(",")
+                if len(parts) == 2:
+                    try:
+                        min_year = int(parts[0].strip())
+                        max_year = int(parts[1].strip())
+                        filter_criteria["death_year_range"] = [min_year, max_year]
+                    except ValueError:
+                        return create_error_response(
+                            f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                        )
+                else:
+                    return create_error_response(
+                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                    )
+            else:
+                # Single year format
+                try:
+                    year = int(death_year_range.strip())
+                    filter_criteria["death_year_range"] = [year, year]
+                except ValueError:
+                    return create_error_response(
+                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
+                    )
+
+        # Handle place filters
+        if birth_place_contains is not None:
+            filter_criteria["birth_place_contains"] = birth_place_contains
+        if death_place_contains is not None:
+            filter_criteria["death_place_contains"] = death_place_contains
+
+        # Handle name filter
+        if name_contains is not None:
+            filter_criteria["name_contains"] = name_contains
+
+        # Handle gender filter
+        if gender is not None:
+            if gender.upper() in ["M", "F"]:
+                filter_criteria["gender"] = gender.upper()
+            else:
+                return create_error_response(
+                    f"Invalid gender: {gender}. Must be 'M' or 'F'"
+                )
+
+        # Handle boolean filters
+        if has_children is not None:
+            filter_criteria["has_children"] = has_children
+        if has_parents is not None:
+            filter_criteria["has_parents"] = has_parents
+        if has_spouses is not None:
+            filter_criteria["has_spouses"] = has_spouses
+        if is_living is not None:
+            filter_criteria["is_living"] = is_living
+
+        # PERFORMANCE OPTIMIZATION: Use lookup dictionary instead of iterating through all elements
+        # Get all people
+        matching_people = []
+
+        for individual_elem in gedcom_ctx.individual_lookup.values():
+            person = _extract_person_details(individual_elem, gedcom_ctx)
+            if person and _matches_criteria(person, filter_criteria):
+                matching_people.append(person)
+
+        # Sort by ID for consistent ordering
+        matching_people.sort(key=lambda p: p.id)
+
+        # Calculate pagination
+        total_count = len(matching_people)
+        total_pages = (total_count + page_size - 1) // page_size
+        start_index = (page - 1) * page_size
+        end_index = min(start_index + page_size, total_count)
+
+        # Get the page of people
+        page_people = matching_people[start_index:end_index]
+
+        # Format result as a dictionary
+        people_data = []
+        for person in page_people:
+            person_data = {
+                "id": person.id,
+                "name": person.name,
+                "has_children": len(person.children) > 0,
+                "has_parents": len(person.parents) > 0,
+                "has_spouses": len(person.spouses) > 0,
+                "is_living": person.death_date is None,
+            }
+
+            # Add optional fields if they exist
+            if person.birth_date:
+                person_data["birth_date"] = person.birth_date
+            if person.birth_place:
+                person_data["birth_place"] = person.birth_place
+            if person.death_date:
+                person_data["death_date"] = person.death_date
+            if person.death_place:
+                person_data["death_place"] = person.death_place
+            if person.gender:
+                person_data["gender"] = person.gender
+            if person.occupation:
+                person_data["occupation"] = person.occupation
+
+            people_data.append(person_data)
+
+        result = {
+            "filters_applied": filter_criteria,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "has_next_page": page < total_pages,
+            "has_previous_page": page > 1,
+            "current_page_count": len(page_people),
+            "people": people_data,
+        }
+
+        return result
+
+    except Exception as e:
+        return create_error_response(f"Error querying people by criteria: {e}")
+
 
 @mcp.tool()
 async def get_person_details(
@@ -564,6 +863,97 @@ async def get_person_details(
             "message": f"Person {person_id} was not found in the family tree",
         }
 
+
+@mcp.tool()
+async def get_all_entity_ids(
+    entity_type: Annotated[
+        Literal["person", "family", "place", "note", "source"],
+        Field(
+            description="The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source')"
+        ),
+    ],
+    ctx: Context,
+    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
+    page_size: Annotated[
+        int,
+        Field(
+            description="Number of IDs per page (default 100, max 1000 for person/family, max 500 for others)"
+        ),
+    ] = 100,
+) -> dict:
+    """Get all IDs for a specific entity type (person, family, place, note, source) with pagination.
+
+    Parameters:
+        entity_type: The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source').
+        page: Page number (starting from 1).
+        page_size: Number of IDs per page (default 100, max 1000 for person/family, max 500 for others).
+    """
+    gedcom_ctx = get_gedcom_context(ctx)
+    if not gedcom_ctx.gedcom_parser:
+        return create_error_response(
+            "No GEDCOM file loaded. Please load a GEDCOM file first.",
+            "Use the load_gedcom tool to open a GEDCOM file",
+        )
+
+    all_ids = []
+    total_count = 0
+    max_page_size = 1000  # Default max for person/family
+
+    try:
+        if entity_type == "person":
+            all_ids = list(gedcom_ctx.individual_lookup.keys())
+        elif entity_type == "family":
+            all_ids = list(gedcom_ctx.family_lookup.keys())
+        elif entity_type == "note":
+            all_ids = list(gedcom_ctx.note_lookup.keys())
+            max_page_size = 500  # Max page size for notes
+        elif entity_type == "source":
+            all_ids = list(gedcom_ctx.source_lookup.keys())
+            max_page_size = 500  # Max page size for sources
+        elif entity_type == "place":
+            # For places, we need to use the internal function to get unique places
+            # and then extract their names/IDs.
+            # _get_places_internal returns a list of dicts, each with a 'name' key
+            places_data = _get_places_internal(query=None, gedcom_ctx=gedcom_ctx)
+            all_ids = [place["name"] for place in places_data]
+            max_page_size = 500  # Max page size for places
+        else:
+            return create_error_response(
+                "Invalid entity_type. Must be 'person', 'family', 'place', 'note', or 'source'."
+            )
+
+        # Validate parameters
+        if page < 1:
+            return create_error_response("Page number must be 1 or greater")
+        if page_size < 1 or page_size > max_page_size:
+            return create_error_response(
+                f"Page size must be between 1 and {max_page_size}"
+            )
+
+        all_ids.sort()  # Sort for consistent ordering
+        total_count = len(all_ids)
+        total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+        start_index = (page - 1) * page_size
+        end_index = min(start_index + page_size, total_count)
+
+        page_ids = all_ids[start_index:end_index]
+
+        result = {
+            "entity_type": entity_type,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "has_next_page": page < total_pages,
+            "has_previous_page": page > 1,
+            "current_page_count": len(page_ids),
+            f"{entity_type}_ids": page_ids,  # Dynamic key
+        }
+
+        return result
+
+    except Exception as e:
+        return create_error_response(f"Error getting all {entity_type} IDs: {e}")
 
 @mcp.tool()
 async def get_events(
@@ -791,54 +1181,6 @@ async def get_statistics(ctx: Context) -> dict:
             "status": "error",
             "message": f"Unexpected error generating statistics: {str(e)}",
             "recovery_suggestion": "Try reloading the GEDCOM file or contact support",
-        }
-
-@mcp.tool()
-async def find_person(
-    name: Annotated[
-        str, Field(description="Name to search for (partial matches supported)")
-    ],
-    ctx: Context,
-) -> dict:
-    """Search for persons by name.
-
-    Returns:
-        Dictionary with search results containing count and person details.
-
-    Examples:
-        find_person("John")
-        find_person("Smith")
-    """
-    if not name:
-        return {
-            "status": "error",
-            "message": "Search name is required",
-            "recovery_suggestion": "Provide a name to search for",
-        }
-
-    gedcom_ctx = get_gedcom_context(ctx)
-    if not gedcom_ctx.gedcom_parser:
-        return {
-            "status": "error",
-            "message": "No family tree file is currently loaded",
-            "recovery_suggestion": "Use the load_gedcom tool to open a GEDCOM file first",
-        }
-
-    persons = find_person_by_name(name, gedcom_ctx)
-    if persons:
-        return {
-            "status": "success",
-            "message": f"Found {len(persons)} persons matching '{name}'",
-            "data": {
-                "persons": [person.model_dump() for person in persons],
-                "count": len(persons),
-            },
-        }
-    else:
-        return {
-            "status": "success",
-            "message": f"No persons found matching '{name}'",
-            "data": {"persons": [], "count": 0},
         }
 
 
@@ -1814,351 +2156,6 @@ async def get_persons_batch(
 
     except Exception as e:
         return create_error_response(f"Error getting persons batch: {e}")
-
-
-@mcp.tool()
-async def query_people_by_criteria(
-    ctx: Context,
-    occupation: Annotated[
-        Optional[str],
-        Field(description="Exact match for occupation (e.g., 'farmer', 'teacher')"),
-    ] = None,
-    birth_year_range: Annotated[
-        Optional[str],
-        Field(
-            description="Year range as 'min_year,max_year' or single year (e.g., '1800,1850' or '1800')"
-        ),
-    ] = None,
-    death_year_range: Annotated[
-        Optional[str],
-        Field(
-            description="Year range as 'min_year,max_year' or single year, or 'null' for living people"
-        ),
-    ] = None,
-    birth_place_contains: Annotated[
-        Optional[str],
-        Field(
-            description="Substring match in birth place (case insensitive, e.g., 'London')"
-        ),
-    ] = None,
-    death_place_contains: Annotated[
-        Optional[str],
-        Field(
-            description="Substring match in death place (case insensitive, e.g., 'Paris')"
-        ),
-    ] = None,
-    name_contains: Annotated[
-        Optional[str],
-        Field(
-            description="Substring match in person name (case insensitive, e.g., 'Smith')"
-        ),
-    ] = None,
-    gender: Annotated[
-        Optional[str],
-        Field(description="'M' for male, 'F' for female, or None for any"),
-    ] = None,
-    has_children: Annotated[
-        Optional[bool],
-        Field(
-            description="True for people with children, False for childless, None for any"
-        ),
-    ] = None,
-    has_parents: Annotated[
-        Optional[bool],
-        Field(
-            description="True for people with known parents, False for orphans, None for any"
-        ),
-    ] = None,
-    has_spouses: Annotated[
-        Optional[bool],
-        Field(
-            description="True for people with spouses, False for unmarried, None for any"
-        ),
-    ] = None,
-    is_living: Annotated[
-        Optional[bool],
-        Field(
-            description="True for living people (no death date), False for deceased, None for any"
-        ),
-    ] = None,
-    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
-    page_size: Annotated[
-        int, Field(description="Number of people per page (default 100, max 500)")
-    ] = DEFAULT_PAGE_SIZE,
-) -> dict:
-    """Query people using flexible criteria with pagination
-
-    Returns:
-        Dictionary with search results and pagination information.
-    """
-    gedcom_ctx = get_gedcom_context(ctx)
-    if not gedcom_ctx.gedcom_parser:
-        return create_error_response(
-            "No family tree file is currently loaded",
-            "Use the load_gedcom tool to open a GEDCOM file first",
-        )
-
-    # Validate parameters
-    if page < 1:
-        return create_error_response("Page number must be 1 or greater")
-    if page_size < 1 or page_size > MAX_PAGE_SIZE_OTHERS:
-        return create_error_response(
-            f"Page size must be between 1 and {MAX_PAGE_SIZE_OTHERS}"
-        )
-
-    try:
-        # Build filter criteria from individual parameters
-        filter_criteria = {}
-
-        # Handle occupation filter
-        if occupation is not None:
-            filter_criteria["occupation"] = occupation
-
-        # Handle birth_year_range filter
-        if birth_year_range is not None:
-            if "," in birth_year_range:
-                # Range format: "min_year,max_year"
-                parts = birth_year_range.split(",")
-                if len(parts) == 2:
-                    try:
-                        min_year = int(parts[0].strip())
-                        max_year = int(parts[1].strip())
-                        filter_criteria["birth_year_range"] = [min_year, max_year]
-                    except ValueError:
-                        return create_error_response(
-                            f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                        )
-                else:
-                    return create_error_response(
-                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                    )
-            else:
-                # Single year format
-                try:
-                    year = int(birth_year_range.strip())
-                    filter_criteria["birth_year_range"] = [year, year]
-                except ValueError:
-                    return create_error_response(
-                        f"Invalid birth_year_range format: {birth_year_range}. Use 'min_year,max_year' or single year"
-                    )
-
-        # Handle death_year_range filter
-        if death_year_range is not None:
-            if death_year_range.lower() == "null":
-                # Special case: null means living people (no death date)
-                filter_criteria["death_year_range"] = None
-            elif "," in death_year_range:
-                # Range format: "min_year,max_year"
-                parts = death_year_range.split(",")
-                if len(parts) == 2:
-                    try:
-                        min_year = int(parts[0].strip())
-                        max_year = int(parts[1].strip())
-                        filter_criteria["death_year_range"] = [min_year, max_year]
-                    except ValueError:
-                        return create_error_response(
-                            f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                        )
-                else:
-                    return create_error_response(
-                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                    )
-            else:
-                # Single year format
-                try:
-                    year = int(death_year_range.strip())
-                    filter_criteria["death_year_range"] = [year, year]
-                except ValueError:
-                    return create_error_response(
-                        f"Invalid death_year_range format: {death_year_range}. Use 'min_year,max_year', single year, or 'null'"
-                    )
-
-        # Handle place filters
-        if birth_place_contains is not None:
-            filter_criteria["birth_place_contains"] = birth_place_contains
-        if death_place_contains is not None:
-            filter_criteria["death_place_contains"] = death_place_contains
-
-        # Handle name filter
-        if name_contains is not None:
-            filter_criteria["name_contains"] = name_contains
-
-        # Handle gender filter
-        if gender is not None:
-            if gender.upper() in ["M", "F"]:
-                filter_criteria["gender"] = gender.upper()
-            else:
-                return create_error_response(
-                    f"Invalid gender: {gender}. Must be 'M' or 'F'"
-                )
-
-        # Handle boolean filters
-        if has_children is not None:
-            filter_criteria["has_children"] = has_children
-        if has_parents is not None:
-            filter_criteria["has_parents"] = has_parents
-        if has_spouses is not None:
-            filter_criteria["has_spouses"] = has_spouses
-        if is_living is not None:
-            filter_criteria["is_living"] = is_living
-
-        # PERFORMANCE OPTIMIZATION: Use lookup dictionary instead of iterating through all elements
-        # Get all people
-        matching_people = []
-
-        for individual_elem in gedcom_ctx.individual_lookup.values():
-            person = _extract_person_details(individual_elem, gedcom_ctx)
-            if person and _matches_criteria(person, filter_criteria):
-                matching_people.append(person)
-
-        # Sort by ID for consistent ordering
-        matching_people.sort(key=lambda p: p.id)
-
-        # Calculate pagination
-        total_count = len(matching_people)
-        total_pages = (total_count + page_size - 1) // page_size
-        start_index = (page - 1) * page_size
-        end_index = min(start_index + page_size, total_count)
-
-        # Get the page of people
-        page_people = matching_people[start_index:end_index]
-
-        # Format result as a dictionary
-        people_data = []
-        for person in page_people:
-            person_data = {
-                "id": person.id,
-                "name": person.name,
-                "has_children": len(person.children) > 0,
-                "has_parents": len(person.parents) > 0,
-                "has_spouses": len(person.spouses) > 0,
-                "is_living": person.death_date is None,
-            }
-
-            # Add optional fields if they exist
-            if person.birth_date:
-                person_data["birth_date"] = person.birth_date
-            if person.birth_place:
-                person_data["birth_place"] = person.birth_place
-            if person.death_date:
-                person_data["death_date"] = person.death_date
-            if person.death_place:
-                person_data["death_place"] = person.death_place
-            if person.gender:
-                person_data["gender"] = person.gender
-            if person.occupation:
-                person_data["occupation"] = person.occupation
-
-            people_data.append(person_data)
-
-        result = {
-            "filters_applied": filter_criteria,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-            "total_count": total_count,
-            "has_next_page": page < total_pages,
-            "has_previous_page": page > 1,
-            "current_page_count": len(page_people),
-            "people": people_data,
-        }
-
-        return result
-
-    except Exception as e:
-        return create_error_response(f"Error querying people by criteria: {e}")
-
-
-@mcp.tool()
-async def get_all_entity_ids(
-    entity_type: Annotated[
-        str,
-        Field(
-            description="The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source')"
-        ),
-    ],
-    ctx: Context,
-    page: Annotated[int, Field(description="Page number (starting from 1)")] = 1,
-    page_size: Annotated[
-        int,
-        Field(
-            description="Number of IDs per page (default 100, max 1000 for person/family, max 500 for others)"
-        ),
-    ] = 100,
-) -> dict:
-    """Get all IDs for a specific entity type (person, family, place, note, source) with pagination.
-
-    Parameters:
-        entity_type: The type of entity to retrieve IDs for ('person', 'family', 'place', 'note', 'source').
-        page: Page number (starting from 1).
-        page_size: Number of IDs per page (default 100, max 1000 for person/family, max 500 for others).
-    """
-    gedcom_ctx = get_gedcom_context(ctx)
-    if not gedcom_ctx.gedcom_parser:
-        return create_error_response(
-            "No GEDCOM file loaded. Please load a GEDCOM file first.",
-            "Use the load_gedcom tool to open a GEDCOM file",
-        )
-
-    all_ids = []
-    total_count = 0
-    max_page_size = 1000  # Default max for person/family
-
-    try:
-        if entity_type == "person":
-            all_ids = list(gedcom_ctx.individual_lookup.keys())
-        elif entity_type == "family":
-            all_ids = list(gedcom_ctx.family_lookup.keys())
-        elif entity_type == "note":
-            all_ids = list(gedcom_ctx.note_lookup.keys())
-            max_page_size = 500  # Max page size for notes
-        elif entity_type == "source":
-            all_ids = list(gedcom_ctx.source_lookup.keys())
-            max_page_size = 500  # Max page size for sources
-        elif entity_type == "place":
-            # For places, we need to use the internal function to get unique places
-            # and then extract their names/IDs.
-            # _get_places_internal returns a list of dicts, each with a 'name' key
-            places_data = _get_places_internal(query=None, gedcom_ctx=gedcom_ctx)
-            all_ids = [place["name"] for place in places_data]
-            max_page_size = 500  # Max page size for places
-        else:
-            return create_error_response(
-                "Invalid entity_type. Must be 'person', 'family', 'place', 'note', or 'source'."
-            )
-
-        # Validate parameters
-        if page < 1:
-            return create_error_response("Page number must be 1 or greater")
-        if page_size < 1 or page_size > max_page_size:
-            return create_error_response(
-                f"Page size must be between 1 and {max_page_size}"
-            )
-
-        all_ids.sort()  # Sort for consistent ordering
-        total_count = len(all_ids)
-        total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
-        start_index = (page - 1) * page_size
-        end_index = min(start_index + page_size, total_count)
-
-        page_ids = all_ids[start_index:end_index]
-
-        result = {
-            "entity_type": entity_type,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-            "total_count": total_count,
-            "has_next_page": page < total_pages,
-            "has_previous_page": page > 1,
-            "current_page_count": len(page_ids),
-            f"{entity_type}_ids": page_ids,  # Dynamic key
-        }
-
-        return result
-
-    except Exception as e:
-        return create_error_response(f"Error getting all {entity_type} IDs: {e}")
 
 
 @mcp.tool()
@@ -3574,36 +3571,6 @@ async def request_event_details(context: Context) -> str:
 
 # Genealogy Date Parsing Tools
 if DATE_UTILS_AVAILABLE:
-
-    @mcp.tool()
-    async def validate_dates(
-        ctx: Context,
-        birth_date: Annotated[
-            Optional[str], Field(description="Birth date string to validate")
-        ] = None,
-        death_date: Annotated[
-            Optional[str], Field(description="Death date string to validate")
-        ] = None,
-    ) -> str:
-        """Validate that birth and death dates are consistent.
-
-        Returns:
-            Validation result with any error messages
-        """
-        try:
-            is_valid, error_msg = validate_date_consistency(birth_date, death_date)
-            result = {
-                "birth_date": birth_date,
-                "death_date": death_date,
-                "is_valid": is_valid,
-                "error_message": error_msg,
-            }
-            import json
-
-            return json.dumps(result, indent=2)
-        except Exception as e:
-            return f"Error validating dates: {e}"
-
     @mcp.tool()
     async def get_date_certainty(
         ctx: Context,
@@ -3816,10 +3783,6 @@ def gedcom_help() -> str:
 - **get_date_range_analysis**() - Analyze time periods and generations covered
 - **find_potential_duplicates**() - Find possible duplicate person records
 
-- **validate_dates**(birth_date, death_date) - Validate consistency between birth and death dates
-  - Parameters:
-    - birth_date (string) - Birth date to validate
-    - death_date (string) - Death date to validate
 - **get_date_certainty**(date_string) - Get certainty level description for a date
   - Parameters: date_string (string) - Date string to analyze
 
