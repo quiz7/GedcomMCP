@@ -2325,8 +2325,8 @@ async def find_all_relationship_paths(
         return create_error_response(f"Person not found: {person2_id}")
 
     if person1_id == person2_id:
-        return f'{"paths": [{"path": ["{person1_id}"], "distance": 0, "relationship_chain": ["self"], "description": "Same person"}], "total_paths": 1}'
-
+        #return f'{"paths": [{"path": ["{person1_id}"], "distance": 0, "relationship_chain": ["self"], "description": "Same person"}], "total_paths": 1}'
+        return json.dumps({"paths": [{"path": [person1_id], "distance": 0, "relationship_chain": ["self"], "description": "Same person"}], "total_paths": 1})
     # Validate parameters
     if max_distance < 1:
         max_distance = 15
